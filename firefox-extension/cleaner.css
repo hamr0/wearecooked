@@ -1,0 +1,85 @@
+#scanBtn {
+  background: #6c5ce7; color: #fff; border: none; padding: 14px 36px;
+  border-radius: 8px; font-size: 1.1rem; font-weight: 600; cursor: pointer;
+  margin-top: 12px;
+}
+.cleaner-controls {
+  display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; align-items: center;
+}
+.cleaner-controls button {
+  padding: 10px 20px; border: none; border-radius: 8px;
+  font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: opacity 0.15s;
+}
+.cleaner-controls button:hover { opacity: 0.85; }
+.cleaner-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
+.btn-nuke { background: var(--red); color: #fff; }
+.btn-safe { background: var(--green); color: #fff; }
+.btn-select { background: var(--surface2); color: var(--text); border: 1px solid var(--border) !important; }
+
+.cat-group {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; margin-bottom: 16px; overflow: hidden;
+}
+.cat-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; cursor: pointer; user-select: none;
+}
+.cat-header:hover { background: var(--surface2); }
+.cat-left { display: flex; align-items: center; gap: 12px; }
+.cat-left input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
+.cat-name { font-weight: 600; font-size: 0.95rem; }
+.cat-risk { font-size: 0.72rem; font-weight: 600; padding: 3px 10px; border-radius: 4px; }
+.cat-risk.safe { background: rgba(46,204,113,0.15); color: var(--green); }
+.cat-risk.risky { background: rgba(231,76,60,0.15); color: var(--red); }
+.cat-risk.warn { background: rgba(230,126,34,0.15); color: var(--orange); }
+
+.cat-body {
+  display: none; border-top: 1px solid var(--border); max-height: 300px; overflow-y: auto;
+}
+.cat-body.open { display: block; }
+.cookie-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 18px; font-size: 0.82rem; border-bottom: 1px solid var(--border);
+}
+.cookie-row:last-child { border-bottom: none; }
+.cookie-row:hover { background: var(--surface2); }
+.cookie-row input[type="checkbox"] {
+  width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0;
+}
+.cookie-domain { color: var(--accent); font-weight: 500; min-width: 180px; }
+.cookie-name { color: var(--blue); min-width: 160px; }
+.cookie-meta { color: var(--text2); font-size: 0.75rem; }
+
+.result-banner {
+  padding: 14px 18px; border-radius: 8px; margin-bottom: 16px; font-weight: 600; display: none;
+}
+.result-banner.success { display: block; background: rgba(46,204,113,0.12); color: var(--green); border: 1px solid rgba(46,204,113,0.3); }
+.result-banner.error { display: block; background: rgba(231,76,60,0.12); color: var(--red); border: 1px solid rgba(231,76,60,0.3); }
+
+.confirm-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.confirm-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 28px; max-width: 480px; width: 90%;
+}
+.confirm-box h3 { margin-bottom: 12px; }
+.confirm-box p { color: var(--text2); font-size: 0.88rem; margin-bottom: 8px; line-height: 1.5; }
+.confirm-box .confirm-btns { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
+.confirm-box .confirm-btns button {
+  padding: 10px 24px; border: none; border-radius: 8px; font-size: 0.88rem; font-weight: 600; cursor: pointer;
+}
+.btn-cancel { background: var(--surface2); color: var(--text); }
+.btn-confirm-delete { background: var(--red); color: #fff; }
+
+.summary-bar {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; font-size: 0.85rem; color: var(--text2);
+}
+.summary-bar strong { color: var(--text); }
+
+.protected-note {
+  font-size: 0.78rem; color: var(--text2); padding: 10px 14px;
+  background: rgba(46,204,113,0.08); border-radius: 6px;
+  border-left: 3px solid var(--green); margin-bottom: 16px;
+}

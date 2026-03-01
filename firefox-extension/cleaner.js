@@ -142,6 +142,14 @@ function esc(str) {
   return el.innerHTML;
 }
 
+function safeSetHTML(target, html) {
+  while (target.firstChild) target.removeChild(target.firstChild);
+  var parsed = new DOMParser().parseFromString(html, "text/html");
+  while (parsed.body.firstChild) {
+    target.appendChild(document.adoptNode(parsed.body.firstChild));
+  }
+}
+
 // --- State ---
 var allCookies = [];
 var selectedIds = new Set();
@@ -240,7 +248,7 @@ function renderCleaner(cookies) {
 
   document.getElementById("loading").style.display = "none";
   var app = document.getElementById("app");
-  app.innerHTML = html;
+  safeSetHTML(app, html);
   app.style.display = "block";
   updateSummary();
   bindEvents();
@@ -301,10 +309,10 @@ function updateSummary() {
 
   var bar = document.getElementById("summary-bar");
   if (bar) {
-    bar.innerHTML =
+    safeSetHTML(bar,
       '<span>Deleting: <strong style="color:var(--red)">' + selCount + '</strong></span>' +
       '<span>Keeping: <strong style="color:var(--green)">' + kept + '</strong></span>' +
-      '<span>Logins protected: <strong style="color:var(--green)">' + authKept + '</strong></span>';
+      '<span>Logins protected: <strong style="color:var(--green)">' + authKept + '</strong></span>');
   }
 }
 
@@ -369,7 +377,7 @@ function confirmDelete() {
 
   var overlay = document.createElement("div");
   overlay.className = "confirm-overlay";
-  overlay.innerHTML =
+  safeSetHTML(overlay,
     '<div class="confirm-box">' +
     '<h3>Delete ' + selectedIds.size + ' cookies?</h3>' +
     '<p>This will permanently remove the selected cookies from your browser.</p>' +
@@ -379,7 +387,7 @@ function confirmDelete() {
     '<div class="confirm-btns">' +
     '<button class="btn-cancel" id="confirm-cancel">Cancel</button>' +
     '<button class="btn-confirm-delete" id="confirm-go">Delete ' + selectedIds.size + ' Cookies</button>' +
-    '</div></div>';
+    '</div></div>');
 
   document.body.appendChild(overlay);
 

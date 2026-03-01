@@ -161,6 +161,14 @@ function esc(str) {
   return el.innerHTML;
 }
 
+function safeSetHTML(target, html) {
+  while (target.firstChild) target.removeChild(target.firstChild);
+  var parsed = new DOMParser().parseFromString(html, "text/html");
+  while (parsed.body.firstChild) {
+    target.appendChild(document.adoptNode(parsed.body.firstChild));
+  }
+}
+
 function fmtDate(epoch) {
   if (!epoch) return "\u2014";
   const d = new Date(epoch * 1000);
@@ -417,7 +425,7 @@ function renderReport(cookies) {
 
   document.getElementById("loading").style.display = "none";
   const reportEl = document.getElementById("report");
-  reportEl.innerHTML = html;
+  safeSetHTML(reportEl, html);
   reportEl.style.display = "block";
 
   // Table toggle

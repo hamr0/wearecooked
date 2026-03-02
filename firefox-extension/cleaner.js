@@ -193,7 +193,7 @@ function renderCleaner(cookies) {
   var riskyCount = cookies.filter(function(c) { return RISKY_CATEGORIES.has(c.category); }).length;
   var safeCount = cookies.length - riskyCount;
 
-  var html = '<h1><span class="icon">&#128373;</span> wearecooked ' +
+  var html = '<h1><img class="icon" src="logo.png" alt="logo"> wearecooked ' +
     '<span style="font-size:0.9rem;color:var(--text2);font-weight:400">\u2014 Cookie Cleaner</span></h1>' +
     '<p class="subtitle">' + cookies.length + ' cookies scanned &middot; ' +
     riskyCount + ' trackers found &middot; ' + safeCount + ' kept safe</p>' +

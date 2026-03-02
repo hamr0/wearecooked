@@ -188,7 +188,7 @@ function renderCleaner(cookies) {
   const safeCount = cookies.length - riskyCount;
 
   // Build HTML — no inline handlers
-  var html = '<h1><span class="icon">&#128373;</span> wearecooked ' +
+  var html = '<h1><img class="icon" src="logo.png" alt="logo"> wearecooked ' +
     '<span style="font-size:0.9rem;color:var(--text2);font-weight:400">\u2014 Cookie Cleaner</span></h1>' +
     '<p class="subtitle">' + cookies.length + ' cookies scanned &middot; ' +
     riskyCount + ' trackers found &middot; ' + safeCount + ' kept safe</p>' +

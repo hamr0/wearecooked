@@ -21,11 +21,36 @@ Click the extension icon to generate a report.
 
 **Chrome/Chromium:**
 1. Open `chrome://extensions/` → enable **Developer mode**
-2. Click **Load unpacked** → select `chrome-extension/`
+2. Click **Load unpacked** → select the `chrome-extension/` folder
+3. Click the extension icon in the toolbar to open the report
+4. To test changes: make edits → go back to `chrome://extensions/` → click the refresh icon on the extension card → reopen the report
 
 **Firefox:**
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on** → select `firefox-extension/manifest.json`
+3. Click the extension icon in the toolbar to open the report
+4. To test changes: make edits → go back to `about:debugging` → click **Reload** on the extension card → reopen the report
+5. Note: temporary add-ons are removed when Firefox closes — reload each session
+
+**Manual testing checklist:**
+- [ ] Report loads and shows cookie data
+- [ ] Tagline "Your browser's cookie activity at a glance" appears under the header
+- [ ] "Last scanned" timestamp is shown
+- [ ] Auto-refresh checkbox is checked by default and rescans every 60s
+- [ ] Unchecking auto-refresh stops the timer
+- [ ] Logo (detective icon with white circle) appears in the page header and browser tab
+- [ ] Cookie Cleaner link works from the CTA banner and footer
+- [ ] Cleaner page loads, pre-selects trackers, and deletion works
+- [ ] Table toggle expands/collapses the full cookie list
+
+## What's new in v2.0.0
+
+- **New logo** — detective/spy icon with white circle background replaces the old cooking emoji, used across the page header, browser tab favicon, and all store/promo images
+- **Tagline** — "Your browser's cookie activity at a glance" shown under the header
+- **Last scanned timestamp** — report subtitle now shows when the scan was performed
+- **Auto-refresh** — checkbox (on by default) rescans cookies every 60 seconds so the report stays current while browsing
+- **Updated store assets** — `store_icon_128.png`, `screenshot1.png`, `screenshot2.png`, and `promo_tile.png` regenerated with the new logo
+- **Firefox extension ID** — updated to `wearecooked-v3@extension`
 
 ## Python CLI (Linux)
 
@@ -114,19 +139,24 @@ First-party domains are derived from your actual cookie data, so third-party cla
 ```
 wearecooked/
   cookie_tracker.py           # Python CLI (Linux)
-  wearecooked-chrome.zip      # Chrome Web Store upload
-  wearecooked-firefox.zip     # Firefox Add-ons upload
-  wearecooked-cleaner-poc.zip # Chrome with cleaner (dev build)
+  store_icon_128.png          # Store icon (detective logo, white circle, dark bg)
+  screenshot1.png             # Store screenshot (1280x800)
+  screenshot2.png             # Store screenshot (1280x800)
+  promo_tile.png              # Promo tile (440x280)
   chrome-extension/           # Chrome source (Manifest V3)
     manifest.json             # MV3, optional host permissions
     background.js             # Opens report on icon click
     cookies.js                # Chrome cookie API adapter
     report.html               # Report page shell
-    report.js                 # Classification engine + report rendering
+    report.js                 # Classification engine + report rendering + auto-refresh
     cleaner.html              # Cookie cleaner page shell
     cleaner.js                # Cleaner logic + deletion (chrome.cookies.remove)
     cleaner.css               # Cleaner-specific styles
     styles.css                # Shared styles (report + cleaner)
+    logo.png                  # Page header logo (detective icon, black on transparent)
+    favicon.png               # Tab favicon (detective icon on white circle)
+    icon48.png                # Extension icon 48x48 (white circle)
+    icon128.png               # Extension icon 128x128 (white circle)
   firefox-extension/          # Firefox source (Manifest V2)
     manifest.json             # MV2, permissions at install
     background.js             # Opens report on icon click (browser.*)
@@ -137,4 +167,8 @@ wearecooked/
     cleaner.js                # Cleaner logic + deletion (browser.cookies.remove)
     cleaner.css               # Same as Chrome
     styles.css                # Same as Chrome
+    logo.png                  # Same as Chrome
+    favicon.png               # Same as Chrome
+    icon48.png                # Same as Chrome
+    icon128.png               # Same as Chrome
 ```

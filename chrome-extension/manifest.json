@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "wearecooked",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Scan cookies, see who tracks you, and clean trackers in one click. Local-only — no data leaves your browser.",
   "permissions": ["cookies"],
   "optional_host_permissions": ["<all_urls>"],

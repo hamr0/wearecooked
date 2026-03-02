@@ -34,8 +34,19 @@ h1 {
   align-items: center;
   gap: 12px;
 }
-h1 .icon { font-size: 2rem; }
-.subtitle { color: var(--text2); margin-bottom: 24px; font-size: 0.9rem; }
+h1 .icon {
+  width: 2rem;
+  height: 2rem;
+  background: white;
+  border-radius: 50%;
+  padding: 4px;
+  object-fit: contain;
+}
+.tagline { color: var(--text2); margin: 0 0 8px; font-size: 0.95rem; opacity: 0.7; }
+.subtitle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; gap: 16px; flex-wrap: wrap; }
+.subtitle { color: var(--text2); margin: 0; font-size: 0.9rem; }
+.auto-refresh { display: flex; align-items: center; gap: 6px; color: var(--text2); font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+.auto-refresh input { cursor: pointer; accent-color: var(--accent); }
 
 /* Summary cards */
 .cards {

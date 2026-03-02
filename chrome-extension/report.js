@@ -276,8 +276,12 @@ function renderReport(cookies) {
   // Build HTML
   const top8 = worstOffenders.slice(0, 8);
   const html = `
-<h1><span class="icon">&#128373;</span> wearecooked</h1>
-<p class="subtitle">${esc(nowStr)} &middot; ${total} cookies &middot; ${Object.keys(domainCounts).length} domains</p>
+<h1><img class="icon" src="logo.png" alt="logo"> wearecooked</h1>
+<p class="tagline">Your browser's cookie activity at a glance</p>
+<div class="subtitle-row">
+  <p class="subtitle">Last scanned: ${esc(nowStr)} &middot; ${total} cookies &middot; ${Object.keys(domainCounts).length} domains</p>
+  <label class="auto-refresh"><input type="checkbox" id="autoRefreshToggle" checked> Auto-refresh (60s)</label>
+</div>
 
 <div class="cards">
   <div class="card"><div class="label">Total Cookies</div><div class="val">${total}</div></div>
@@ -478,18 +482,47 @@ function showError(msg) {
   el.textContent = msg;
 }
 
+// --- Auto-refresh ---
+let autoRefreshTimer = null;
+
+function doScan() {
+  return getAllCookies().then(cookies => {
+    renderReport(cookies);
+    setupAutoRefreshToggle();
+  });
+}
+
+function setupAutoRefreshToggle() {
+  const toggle = document.getElementById("autoRefreshToggle");
+  if (!toggle) return;
+  if (toggle.checked && !autoRefreshTimer) {
+    autoRefreshTimer = setInterval(() => doScan(), 60000);
+  }
+  toggle.addEventListener("change", function() {
+    if (this.checked) {
+      autoRefreshTimer = setInterval(() => doScan(), 60000);
+    } else {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+  });
+}
+
 // Try auto-scan first. If permission not yet granted, show button.
 getAllCookies().then(cookies => {
   showLoading();
   renderReport(cookies);
+  setupAutoRefreshToggle();
 }).catch(err => {
   if (err.message === "NEEDS_PERMISSION") {
-    // First time — show the button for user gesture
     const scanBtn = document.getElementById("scanBtn");
     if (scanBtn) {
       scanBtn.addEventListener("click", () => {
         showLoading();
-        requestAndGetCookies().then(renderReport).catch(e => showError(e.message));
+        requestAndGetCookies().then(cookies => {
+          renderReport(cookies);
+          setupAutoRefreshToggle();
+        }).catch(e => showError(e.message));
       });
     }
   } else {

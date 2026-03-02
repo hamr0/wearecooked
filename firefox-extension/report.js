@@ -284,8 +284,12 @@ function renderReport(cookies) {
   // Build HTML
   const top8 = worstOffenders.slice(0, 8);
   const html = `
-<h1><span class="icon">&#128373;</span> wearecooked</h1>
-<p class="subtitle">${esc(nowStr)} &middot; ${total} cookies &middot; ${Object.keys(domainCounts).length} domains</p>
+<h1><img class="icon" src="logo.png" alt="logo"> wearecooked</h1>
+<p class="tagline">Your browser's cookie activity at a glance</p>
+<div class="subtitle-row">
+  <p class="subtitle">Last scanned: ${esc(nowStr)} &middot; ${total} cookies &middot; ${Object.keys(domainCounts).length} domains</p>
+  <label class="auto-refresh"><input type="checkbox" id="autoRefreshToggle" checked> Auto-refresh (60s)</label>
+</div>
 
 <div class="cards">
   <div class="card"><div class="label">Total Cookies</div><div class="val">${total}</div></div>
@@ -480,8 +484,37 @@ function showError(msg) {
   el.style.color = "#e74c3c";
 }
 
+// --- Auto-refresh ---
+let autoRefreshTimer = null;
+
+function doScan() {
+  return getAllCookies().then(cookies => {
+    renderReport(cookies);
+    setupAutoRefreshToggle();
+  });
+}
+
+function setupAutoRefreshToggle() {
+  const toggle = document.getElementById("autoRefreshToggle");
+  if (!toggle) return;
+  if (toggle.checked && !autoRefreshTimer) {
+    autoRefreshTimer = setInterval(() => doScan(), 60000);
+  }
+  toggle.addEventListener("change", function() {
+    if (this.checked) {
+      autoRefreshTimer = setInterval(() => doScan(), 60000);
+    } else {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+  });
+}
+
 getAllCookies().then(cookies => {
-  try { renderReport(cookies); } catch (e) { showError("Render error: " + e.message); }
+  try {
+    renderReport(cookies);
+    setupAutoRefreshToggle();
+  } catch (e) { showError("Render error: " + e.message); }
 }).catch(err => {
   showError(err.message || "Failed to load cookies.");
 });

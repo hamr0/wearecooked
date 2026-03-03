@@ -2,6 +2,14 @@
 
 All notable changes to wearecooked will be documented in this file.
 
+## [2.0.1] - 2026-03-03
+
+### Added
+- Safari extension support (macOS) — based on Firefox source (`browser.*` API, MV2)
+- GitHub Actions workflow (`build-safari.yml`) to build Safari `.app` on macOS runner
+- Safari install, build, and developer mode instructions in README
+- Safari listed in permissions and project structure sections
+
 ## [2.0.0] - 2026-03-02
 
 ### Added

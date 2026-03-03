@@ -4,7 +4,7 @@ Scan cookies, see who tracks you, and clean trackers in one click. Local-only �
 
 No data leaves your browser. No accounts. No tracking the tracker.
 
-Available as a **Chrome extension**, **Firefox extension** (incl. Android), and **Python CLI** (Linux).
+Available as a **Chrome extension**, **Firefox extension** (incl. Android), **Safari extension** (macOS), and **Python CLI** (Linux).
 
 ## Install
 
@@ -12,10 +12,13 @@ Available as a **Chrome extension**, **Firefox extension** (incl. Android), and 
 
 **Firefox** — [Firefox Add-ons](https://addons.mozilla.org/) _(pending review)_
 
+**Safari** — Built via GitHub Actions (requires macOS). Download the `.app` artifact from the [Actions tab](../../actions/workflows/build-safari.yml), or build from source (see below).
+
 Click the extension icon to generate a report.
 
 - **Chrome**: first time opens a "Scan Cookies" button (Chrome requires a click to grant permission). After that, reports auto-load instantly.
 - **Firefox**: reports auto-load every time (permissions granted at install).
+- **Safari**: reports auto-load every time (same as Firefox — uses `browser.*` API).
 
 ### Load from source (developer mode)
 
@@ -32,6 +35,13 @@ Click the extension icon to generate a report.
 4. To test changes: make edits → go back to `about:debugging` → click **Reload** on the extension card → reopen the report
 5. Note: temporary add-ons are removed when Firefox closes — reload each session
 
+**Safari (macOS only):**
+1. Build the Xcode project (see "Building the Safari extension" below), or download the `.app` from GitHub Actions
+2. Run the generated `wearecooked.app` once to register the extension
+3. Open Safari → Settings → Extensions → enable **wearecooked**
+4. Click the extension icon in the toolbar to open the report
+5. To test source changes: re-run `xcrun safari-web-extension-converter` and rebuild
+
 **Manual testing checklist:**
 - [ ] Report loads and shows cookie data
 - [ ] Tagline "Your browser's cookie activity at a glance" appears under the header
@@ -42,6 +52,31 @@ Click the extension icon to generate a report.
 - [ ] Cookie Cleaner link works from the CTA banner and footer
 - [ ] Cleaner page loads, pre-selects trackers, and deletion works
 - [ ] Table toggle expands/collapses the full cookie list
+
+## Building the Safari extension
+
+Safari Web Extensions require Xcode on macOS. A GitHub Actions workflow (`.github/workflows/build-safari.yml`) automates this on every push to `main`:
+
+1. `xcrun safari-web-extension-converter` converts `safari-extension/` into an Xcode project
+2. `xcodebuild` builds the `.app` (unsigned, for local development)
+3. The `.app` is uploaded as a GitHub Actions artifact
+
+**To build locally (macOS):**
+
+```bash
+# Convert the web extension into an Xcode project
+xcrun safari-web-extension-converter ./safari-extension \
+  --app-name wearecooked \
+  --bundle-identifier com.wearecooked.extension \
+  --no-prompt --no-open --copy-resources
+
+# Build the Xcode project (unsigned)
+cd wearecooked
+xcodebuild -scheme "wearecooked (macOS)" -configuration Release \
+  CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
+```
+
+The Safari extension source is identical to Firefox (same `browser.*` API, MV2 manifest) with the `browser_specific_settings.gecko` block removed.
 
 ## What's new in v2.0.0
 
@@ -132,6 +167,7 @@ First-party domains are derived from your actual cookie data, so third-party cla
 
 - **Chrome**: cookie access is an optional permission, requested at runtime on first use via a "Scan Cookies" button. Once granted, subsequent scans auto-load. The cleaner uses `chrome.cookies.remove()` to delete selected cookies. No broad permissions at install time.
 - **Firefox**: cookies + all URLs declared at install (required for `browser.cookies` API). The cleaner uses `browser.cookies.remove()`. Requires Firefox 142+.
+- **Safari**: same as Firefox — cookies + all URLs declared at install. Uses the `browser.*` API. Requires macOS with Safari 14+.
 - **Python CLI**: reads SQLite files directly from `~/.config/` — no network, no root needed
 
 ## Project structure
@@ -171,4 +207,20 @@ wearecooked/
     favicon.png               # Same as Chrome
     icon48.png                # Same as Chrome
     icon128.png               # Same as Chrome
+  safari-extension/           # Safari source (Manifest V2, same as Firefox)
+    manifest.json             # MV2, no gecko-specific settings
+    background.js             # Same as Firefox (browser.*)
+    cookies.js                # Same as Firefox (browser.*)
+    report.html               # Same as Firefox
+    report.js                 # Same as Firefox
+    cleaner.html              # Same as Firefox
+    cleaner.js                # Same as Firefox
+    cleaner.css               # Same as Chrome/Firefox
+    styles.css                # Same as Chrome/Firefox
+    logo.png                  # Same as Chrome/Firefox
+    favicon.png               # Same as Chrome/Firefox
+    icon48.png                # Same as Chrome/Firefox
+    icon128.png               # Same as Chrome/Firefox
+  .github/workflows/
+    build-safari.yml          # GitHub Actions: build Safari .app on macOS runner
 ```

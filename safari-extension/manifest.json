@@ -1,0 +1,17 @@
+{
+  "manifest_version": 2,
+  "name": "wearecooked",
+  "version": "2.0.0",
+  "description": "Scan cookies, see who tracks you, and clean trackers in one click. Local-only — no data leaves your browser.",
+  "permissions": ["cookies", "<all_urls>"],
+  "browser_action": {
+    "default_title": "wearecooked - Cookie Report"
+  },
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "icons": {
+    "48": "icon48.png",
+    "128": "icon128.png"
+  }
+}

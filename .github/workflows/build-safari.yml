@@ -1,0 +1,41 @@
+name: Build Safari Extension
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Convert web extension to Safari app
+        run: |
+          xcrun safari-web-extension-converter ./safari-extension \
+            --app-name wearecooked \
+            --bundle-identifier com.wearecooked.extension \
+            --no-prompt \
+            --no-open \
+            --copy-resources
+
+      - name: Build Xcode project (unsigned)
+        run: |
+          cd wearecooked
+          xcodebuild \
+            -scheme "wearecooked (macOS)" \
+            -configuration Release \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY=- \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO
+
+      - name: Upload .app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wearecooked-safari
+          path: wearecooked/build/Build/Products/Release/wearecooked.app
+          if-no-files-found: warn

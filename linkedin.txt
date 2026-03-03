@@ -1,0 +1,75 @@
+#wearecooked
+
+Cookies are like the economy. Everyone participates. Nobody understands it. And that's by design.
+
+Every website you visit drops tracking cookies on your browser. Not 1 or 2. Dozens. Some watch you across 47 different sites. Some live for years. Some send your data over plain HTTP where anyone can intercept it.
+
+The companies setting these cookies spent millions making them invisible. There's no receipt. No notification. No dashboard that says "Google tracked you on 47 sites today, Facebook on 23, Reddit on 12."
+
+They designed it so you wouldn't look. Because if you looked, you'd want to delete them. And if you deleted them, their business model breaks.
+
+Here's the thing — your login cookies and your tracking cookies sit in the same jar. So "clear all cookies" logs you out of everything. That's not a bug. That's the lock on the door.
+
+I built wearecooked to open that door.
+
+It scans every cookie in your browser, classifies them (tracking, advertising, social media, session, preference — 10 categories), scores the worst offenders, and now lets you delete the trackers while keeping your logins intact.
+
+One click. Trackers gone. Still logged into everything.
+
+No data leaves your browser. No account needed. No irony.
+
+Now live on Firefox Add-ons. Chrome Web Store (pending review)
+
+#wearebaked
+
+
+I visited LinkedIn, Reddit, YouTube, and CNN without signing in. Four sites. My browser talked to 164 other domains I never asked for.
+
+That's not a feature. That's a coke addict snorting your data without permission.
+
+Every page load fires off requests to ad networks, analytics platforms, fingerprinting services, tracking pixels, and beacon endpoints you've never heard of. They don't ask. They don't notify. They just phone home — every few seconds, like clockwork.
+
+I built wearebaked to make all of it visible.
+
+Open the dashboard and watch in real time: every domain your browser contacts, what category it falls into, whether it's first-party or third-party, and which ones are beaconing on a timer. Filter by domain, category, or third-party status. See redirect chains where one click bounces through five tracking domains before reaching the actual page.
+
+Combine it with wearecooked and you get both sides of the picture — cookies AND network traffic. See who's tracking you through cookies, who's tracking you through requests, and clean the trackers without losing your logins.
+
+And because I trust no one with my traffic, I built my own VPN too. WireGuard on my own server. No third-party VPN provider selling "privacy" while logging everything.
+
+Three tools. All free. All open source. All local-first.
+
+- wearecooked — cookie scanner + cleaner
+- wearebaked — network traffic dashboard
+- privpn — self-hosted VPN
+
+Firefox and Chrome add-ons submitted (pending review). Everything's on GitHub: https://github.com/hamr0
+
+164 domains from four websites. That number should make you uncomfortable. If it doesn't, you haven't been paying attention.
+
+
+#weareleaking
+
+Close all your tabs. Clear your cookies. Open a fresh browser window.
+
+You're still being tracked.
+
+Cookies get all the attention. But while you were busy clicking "accept cookies" banners, websites were quietly saving tracking data somewhere else on your machine. Somewhere most people don't know exists. No banner. No popup. No permission asked.
+
+I scanned 10 sites I use daily. They left behind 312 pieces of hidden data on my browser. Tracking IDs that follow me across sessions. Encoded blobs I can't even read. Little breadcrumbs from Facebook, Google, and Spotify — placed there without asking.
+
+The best part? Clearing cookies doesn't touch any of it. That's not an oversight. That's the backup plan.
+
+Every major site does this. It's where they keep the stuff they don't want you to find in the cookie jar.
+
+I built weareleaking to find it. It scans every site you visit, shows what hidden data they left behind, flags the suspicious stuff, and tells you how much each site is storing. One dashboard. Every site. Everything they didn't tell you about.
+
+This is the third tool in the weare.. series. Each one pulls back a different curtain:
+
+- wearecooked — cookies they drop on you (Published Chrome/Pending Firefox)
+- wearebaked — domains they phone home to (Pending Chrome/Firefox)
+- weareleaking — data they hide on your machine (Pending Chrome/Firefox)
+
+All free. All open source. Nothing leaves your browser.
+
+More curtains to pull. GitHub: https://github.com/hamr0

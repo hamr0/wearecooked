@@ -1,8 +1,18 @@
 # wearecooked
 
-Scan cookies, see who tracks you, and clean trackers in one click. Local-only — no data leaves your browser.
+See what cookies websites drop on you — and the hidden pixels that deliver them.
 
-No data leaves your browser. No accounts. No tracking the tracker.
+wearecooked shows you what's really happening behind every website you visit. It detects the hidden tracking infrastructure that websites embed in your pages — invisible 1x1 tracking pixels, zero-size iframes, navigator.sendBeacon calls, and prefetch links to known tracker domains — then shows you exactly who's responsible.
+
+Click the icon to see a per-site verdict: how many hidden trackers were found, grouped by purpose (Advertising, Analytics, Data broker) and by company (Google, Meta, Amazon, etc.). The badge turns red with a count when trackers are detected.
+
+Open the Cookie Dashboard to see every cookie in your browser classified by category — Analytics, Advertising, Social Media, Session/Auth, CDN, and more. Summary cards show your tracking exposure at a glance: total cookies, tracking percentage, worst offenders, and privacy red flags like cross-site cookies and long-lived trackers.
+
+The built-in Cookie Cleaner lets you selectively delete tracking cookies in one click. It pre-selects risky categories (advertising, analytics, social media) while protecting your login sessions and preferences. Confirmation dialog, per-cookie control, and auto-rescan after deletion.
+
+170+ tracker domains classified by company and purpose. MutationObserver catches trackers injected after page load. URL pattern matching as fallback for unknown domains.
+
+Everything runs locally. No data leaves your browser. No accounts. No servers. No tracking the tracker.
 
 Available as a **Chrome extension**, **Firefox extension** (incl. Android), **Safari extension** (macOS), and **Python CLI** (Linux).
 
@@ -14,9 +24,9 @@ Available as a **Chrome extension**, **Firefox extension** (incl. Android), **Sa
 
 **Safari** — Built via GitHub Actions (requires macOS). Download the `.app` artifact from the [Actions tab](../../actions/workflows/build-safari.yml), or build from source (see below).
 
-Click the extension icon to generate a report.
+Click the extension icon to see a per-site verdict of hidden tracking pixels, invisible iframes, and beacon calls. Click "Open Cookie Dashboard" to view the full cookie report.
 
-- **Chrome**: first time opens a "Scan Cookies" button (Chrome requires a click to grant permission). After that, reports auto-load instantly.
+- **Chrome**: first time the cookie dashboard opens a "Scan Cookies" button (Chrome requires a click to grant permission). After that, reports auto-load instantly.
 - **Firefox**: reports auto-load every time (permissions granted at install).
 - **Safari**: reports auto-load every time (same as Firefox — uses `browser.*` API).
 
@@ -25,33 +35,40 @@ Click the extension icon to generate a report.
 **Chrome/Chromium:**
 1. Open `chrome://extensions/` → enable **Developer mode**
 2. Click **Load unpacked** → select the `chrome-extension/` folder
-3. Click the extension icon in the toolbar to open the report
-4. To test changes: make edits → go back to `chrome://extensions/` → click the refresh icon on the extension card → reopen the report
+3. Browse to any site — the badge shows hidden tracker count
+4. Click the extension icon to see the popup verdict
+5. To test changes: make edits → go back to `chrome://extensions/` → click the refresh icon on the extension card → reload the page
 
 **Firefox:**
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click **Load Temporary Add-on** → select `firefox-extension/manifest.json`
-3. Click the extension icon in the toolbar to open the report
-4. To test changes: make edits → go back to `about:debugging` → click **Reload** on the extension card → reopen the report
-5. Note: temporary add-ons are removed when Firefox closes — reload each session
+3. Browse to any site — the badge shows hidden tracker count
+4. Click the extension icon to see the popup verdict
+5. To test changes: make edits → go back to `about:debugging` → click **Reload** on the extension card → reload the page
+6. Note: temporary add-ons are removed when Firefox closes — reload each session
 
 **Safari (macOS only):**
 1. Build the Xcode project (see "Building the Safari extension" below), or download the `.app` from GitHub Actions
 2. Run the generated `wearecooked.app` once to register the extension
 3. Open Safari → Settings → Extensions → enable **wearecooked**
-4. Click the extension icon in the toolbar to open the report
+4. Click the extension icon in the toolbar to see the popup verdict
 5. To test source changes: re-run `xcrun safari-web-extension-converter` and rebuild
 
 **Manual testing checklist:**
-- [ ] Report loads and shows cookie data
-- [ ] Tagline "Your browser's cookie activity at a glance" appears under the header
-- [ ] "Last scanned" timestamp is shown
+- [ ] Badge shows red count on tracker-heavy sites (cnn.com, amazon.com)
+- [ ] Badge shows gray "0" on clean sites
+- [ ] Click icon → popup shows domain, count, and verdict message
+- [ ] Popup breakdown groups trackers by purpose (Advertising, Analytics, etc.)
+- [ ] "Open Cookie Dashboard" link opens report.html in a new tab
+- [ ] Cookie report loads and shows cookie data
+- [ ] Tagline "Your browser's cookie activity at a glance" appears in the report
+- [ ] "Last scanned" timestamp is shown in the report
 - [ ] Auto-refresh checkbox is checked by default and rescans every 60s
-- [ ] Unchecking auto-refresh stops the timer
 - [ ] Logo (detective icon with white circle) appears in the page header and browser tab
 - [ ] Cookie Cleaner link works from the CTA banner and footer
 - [ ] Cleaner page loads, pre-selects trackers, and deletion works
 - [ ] Table toggle expands/collapses the full cookie list
+- [ ] MutationObserver catches dynamically injected trackers (badge updates after page load)
 
 ## Building the Safari extension
 
@@ -77,6 +94,15 @@ xcodebuild -scheme "wearecooked (macOS)" -configuration Release \
 ```
 
 The Safari extension source is identical to Firefox (same `browser.*` API, MV2 manifest) with the `browser_specific_settings.gecko` block removed.
+
+## What's new in v3.0.0
+
+- **Popup verdict** — clicking the icon now shows a per-site verdict: domain, hidden tracker count, and breakdown by purpose/company
+- **Hidden pixel detection** — content script scans every page for 1x1 tracking pixels, invisible iframes, `<link rel="prefetch">` to tracker domains, and intercepted `navigator.sendBeacon` calls
+- **Badge** — red badge with tracker count when tracking found, gray "0" when clean
+- **170+ tracker domains** — classified by company and purpose (Advertising, Analytics, Data broker, etc.) with URL pattern fallback
+- **MutationObserver** — catches dynamically injected tracking elements after page load
+- **"Open Cookie Dashboard"** — popup links to the existing full cookie report
 
 ## What's new in v2.0.0
 
@@ -165,8 +191,8 @@ First-party domains are derived from your actual cookie data, so third-party cla
 
 ## Permissions
 
-- **Chrome**: cookie access is an optional permission, requested at runtime on first use via a "Scan Cookies" button. Once granted, subsequent scans auto-load. The cleaner uses `chrome.cookies.remove()` to delete selected cookies. No broad permissions at install time.
-- **Firefox**: cookies + all URLs declared at install (required for `browser.cookies` API). The cleaner uses `browser.cookies.remove()`. Requires Firefox 142+.
+- **Chrome**: cookie access is an optional permission, requested at runtime on first use via a "Scan Cookies" button. Once granted, subsequent scans auto-load. The `storage` permission is used for per-tab scan results. Content scripts run on all URLs to detect hidden trackers. The cleaner uses `chrome.cookies.remove()` to delete selected cookies.
+- **Firefox**: cookies + all URLs declared at install (required for `browser.cookies` API). Content scripts scan for hidden trackers. The cleaner uses `browser.cookies.remove()`. Requires Firefox 142+.
 - **Safari**: same as Firefox — cookies + all URLs declared at install. Uses the `browser.*` API. Requires macOS with Safari 14+.
 - **Python CLI**: reads SQLite files directly from `~/.config/` — no network, no root needed
 
@@ -180,8 +206,13 @@ wearecooked/
   screenshot2.png             # Store screenshot (1280x800)
   promo_tile.png              # Promo tile (440x280)
   chrome-extension/           # Chrome source (Manifest V3)
-    manifest.json             # MV3, optional host permissions
-    background.js             # Opens report on icon click
+    manifest.json             # MV3, optional host permissions, content scripts
+    background.js             # Scan result storage, badge updates, message handlers
+    content.js                # DOM scanner: pixels, iframes, prefetches, MutationObserver
+    inject.js                 # Page-context sendBeacon wrapper
+    popup.html                # Popup shell (verdict + dashboard link)
+    popup.js                  # Popup rendering (verdict, breakdown by purpose/company)
+    popup.css                 # Popup styles (dark theme)
     cookies.js                # Chrome cookie API adapter
     report.html               # Report page shell
     report.js                 # Classification engine + report rendering + auto-refresh
@@ -194,8 +225,13 @@ wearecooked/
     icon48.png                # Extension icon 48x48 (white circle)
     icon128.png               # Extension icon 128x128 (white circle)
   firefox-extension/          # Firefox source (Manifest V2)
-    manifest.json             # MV2, permissions at install
-    background.js             # Opens report on icon click (browser.*)
+    manifest.json             # MV2, permissions at install, content scripts
+    background.js             # In-memory tab storage, badge updates (browser.*)
+    content.js                # Same scanner as Chrome (browser.* API)
+    inject.js                 # Same sendBeacon wrapper
+    popup.html                # Same popup shell
+    popup.js                  # Same popup rendering (browser.* API)
+    popup.css                 # Same popup styles
     cookies.js                # Firefox cookie API adapter (browser.*)
     report.html               # Report page (no scan button, auto-loads)
     report.js                 # Same classification + rendering as Chrome
@@ -210,6 +246,11 @@ wearecooked/
   safari-extension/           # Safari source (Manifest V2, same as Firefox)
     manifest.json             # MV2, no gecko-specific settings
     background.js             # Same as Firefox (browser.*)
+    content.js                # Same as Firefox
+    inject.js                 # Same as Firefox
+    popup.html                # Same as Firefox
+    popup.js                  # Same as Firefox
+    popup.css                 # Same as Firefox
     cookies.js                # Same as Firefox (browser.*)
     report.html               # Same as Firefox
     report.js                 # Same as Firefox
@@ -224,3 +265,23 @@ wearecooked/
   .github/workflows/
     build-safari.yml          # GitHub Actions: build Safari .app on macOS runner
 ```
+
+
+---
+
+## The weare____ Suite
+
+Privacy tools that show what's happening — no cloud, no accounts, nothing leaves your browser.
+
+| Extension | What it exposes |
+|-----------|----------------|
+| [wearecooked](https://github.com/hamr0/wearecooked) | Cookies, tracking pixels, and beacons |
+| [wearebaked](https://github.com/hamr0/wearebaked) | Network requests, third-party scripts, and data brokers |
+| [weareleaking](https://github.com/hamr0/weareleaking) | localStorage and sessionStorage tracking data |
+| [wearelinked](https://github.com/hamr0/wearelinked) | Redirect chains and tracking parameters in links |
+| [wearewatched](https://github.com/hamr0/wearewatched) | Browser fingerprinting and silent permission access |
+| [weareplayed](https://github.com/hamr0/weareplayed) | Dark patterns: fake urgency, confirm-shaming, pre-checked boxes |
+| [wearetosed](https://github.com/hamr0/wearetosed) | Toxic clauses in privacy policies and terms of service |
+| [wearesilent](https://github.com/hamr0/wearesilent) | Form input exfiltration before you click submit |
+
+All extensions run entirely on your device and work on Chrome and Firefox.

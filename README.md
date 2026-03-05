@@ -6,6 +6,9 @@ wearecooked shows you the hidden tracking infrastructure websites embed in your 
 
 170+ tracker domains classified by company and purpose. Everything runs locally — no data leaves your browser.
 
+![wearecooked popup](store-assets/cooked1.png)
+![wearecooked dashboard](store-assets/cooked2.png)
+
 ## What it detects
 - Hidden tracking pixels and invisible iframes
 - navigator.sendBeacon calls and prefetch links to tracker domains

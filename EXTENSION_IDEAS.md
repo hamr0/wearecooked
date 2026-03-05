@@ -56,63 +56,87 @@ All local-first, no backend, things big tech won't build.
 
 ---
 
-## 3. wearewatched — Permission & Sensor Access Monitor
+## 3. wearewatched — Device Surveillance Monitor (Fingerprinting + Permission Access)
 
-**What it does.** A persistent toolbar icon that lights up whenever a website accesses device capabilities: clipboard, geolocation, camera, microphone, notifications, motion sensors. Logs every access attempt with timestamp and domain. Shows: "reddit.com checked your clipboard 4 times in the last hour."
+> **Merged:** Absorbs wearetracked (fingerprint detection). Both use identical technique (prototype wrapping + page-level script injection + postMessage relay) targeting different APIs. One extension, two sections in the UI.
 
-**Why no one has built it.** Browsers show one-time permission prompts but provide zero ongoing visibility into how often granted permissions are actually used. There is no "access log" anywhere in Chrome or Firefox.
+**What it does.** Monitors two forms of silent device surveillance: (1) fingerprinting — when sites probe Canvas, WebGL, AudioContext, and navigator properties to uniquely identify you, and (2) permission snooping — when sites access clipboard, geolocation, camera, notifications, and sensors. Shows both in a unified dashboard: "This site tried 4 fingerprinting methods and accessed 2 device permissions."
 
-**APIs:** Content scripts wrapping `navigator.clipboard.readText`, `navigator.geolocation.getCurrentPosition`, `navigator.geolocation.watchPosition`, `Notification.requestPermission`, `navigator.mediaDevices.getUserMedia`, `DeviceMotionEvent`, `DeviceOrientationEvent` via prototype interception.
+**Why no one has built it.** Fingerprint tools (Canvas Blocker, Chameleon) focus on blocking/spoofing, which breaks sites. Browsers show one-time permission prompts but no ongoing access log. No tool combines transparency for both into one view.
 
-**Permissions:** `activeTab`, `storage`
-
-**POC scope:**
-- Content script that injects a page-level script (via `<script>` tag into page context) to wrap three APIs as a starting point:
-  - `navigator.clipboard.readText` / `navigator.clipboard.read`
-  - `navigator.geolocation.getCurrentPosition` / `watchPosition`
-  - `Notification.requestPermission`
-- Each wrapper: calls the original function, then posts a `CustomEvent` or `window.postMessage` back to the content script with: API name, timestamp, page URL
-- Content script forwards events to background script
-- Background script stores access log in `browser.storage.local` keyed by domain
-- Popup shows a reverse-chronological log: "clipboard read — reddit.com — 2 min ago"
-- Badge shows total access count for current tab
-
-**What the POC proves:** That prototype wrapping works for permission APIs, that sites access these more often than users expect, and that the access log UX is useful.
-
-**Difficulty:** Medium
-
----
-
-## 4. wearetracked — Fingerprint Exposure Dashboard
-
-**What it does.** Shows users in real-time exactly how uniquely identifiable they are. Monitors every fingerprinting technique the current page attempts — canvas, WebGL, AudioContext, font enumeration, navigator property reads — and presents a dashboard: "This site tried 7 fingerprinting methods." Unlike existing tools that block or spoof fingerprints, this is purely observational and educational.
-
-**Why no one has built it.** Existing fingerprint tools (Canvas Blocker, Chameleon) focus on blocking/spoofing, which breaks sites. The pure transparency angle — just showing what is being attempted — has no commercial model. DFPM on GitHub tried this but is abandoned and developer-focused.
-
-**APIs:** Content scripts with `Object.defineProperty` wrappers on Canvas (`toDataURL`, `getImageData`), WebGL (`getParameter`, `getExtension`), AudioContext (`createOscillator`), navigator properties (`hardwareConcurrency`, `deviceMemory`, `platform`, `languages`).
+**APIs:** Content scripts with prototype wrapping via page-level script injection:
+- Fingerprinting: `HTMLCanvasElement.prototype.toDataURL`, `WebGLRenderingContext.prototype.getParameter`, `AudioContext.prototype.createOscillator`, `navigator.hardwareConcurrency` (getter), `navigator.languages` (getter)
+- Permissions: `navigator.clipboard.readText`/`read`, `navigator.geolocation.getCurrentPosition`/`watchPosition`, `Notification.requestPermission`, `navigator.mediaDevices.getUserMedia`, `DeviceMotionEvent`, `DeviceOrientationEvent`
 
 **Permissions:** `activeTab`, `storage`
 
 **POC scope:**
-- Content script that injects a page-level script wrapping the most common fingerprinting APIs (start with 5):
-  - `HTMLCanvasElement.prototype.toDataURL`
-  - `WebGLRenderingContext.prototype.getParameter`
-  - `AudioContext.prototype.createOscillator` (or `OfflineAudioContext`)
-  - `navigator.hardwareConcurrency` (getter)
-  - `navigator.languages` (getter)
-- Each wrapper: calls the original, posts a message to the content script with: API name, call stack (first 3 frames via `new Error().stack`), timestamp
+- Content script injects page-level script (via `<script>` tag into page context) wrapping 8 APIs total (5 fingerprinting + 3 permission):
+  - **Fingerprinting:** `HTMLCanvasElement.prototype.toDataURL`, `WebGLRenderingContext.prototype.getParameter`, `AudioContext.prototype.createOscillator`, `navigator.hardwareConcurrency`, `navigator.languages`
+  - **Permissions:** `navigator.clipboard.readText`/`read`, `navigator.geolocation.getCurrentPosition`/`watchPosition`, `Notification.requestPermission`
+- Each wrapper: calls the original, posts `window.postMessage` to content script with: API name, category (fingerprint/permission), call stack (first 3 frames), timestamp
 - Content script forwards to background script
-- Background script tallies fingerprinting attempts per domain
-- Popup shows: domain, list of fingerprinting methods attempted, total count
-- Badge shows number of distinct fingerprinting techniques detected on current tab (e.g., "4")
+- Background script stores per domain in `browser.storage.local`
+- Badge shows combined count (fingerprint methods + permission accesses) on current tab
+- Popup shows two sections (see layout below)
+- Dashboard tab shows all-sites history
 
-**What the POC proves:** That wrapping fingerprinting APIs catches real-world usage, and that the count of techniques per page is surprisingly high and varies meaningfully across sites.
+**Popup layout:**
+```
+┌─ wearewatched popup ───────────────────┐
+│  reddit.com                            │
+│                                        │
+│  FINGERPRINTING                4 methods│
+│  ┌──────────────────────────────────┐  │
+│  │ Canvas read         ██████  12x  │  │
+│  │ WebGL params        ███      3x  │  │
+│  │ AudioContext        ██       2x  │  │
+│  │ navigator.languages █        1x  │  │
+│  └──────────────────────────────────┘  │
+│                                        │
+│  PERMISSION ACCESS             2 APIs  │
+│  ┌──────────────────────────────────┐  │
+│  │ Clipboard read      ████     4x  │  │
+│  │ Geolocation         █        1x  │  │
+│  └──────────────────────────────────┘  │
+│                                        │
+│  Badge: 6  (4 fingerprint + 2 perm)    │
+│                                        │
+│  [Open Dashboard]                      │
+└────────────────────────────────────────┘
+```
+
+**Dashboard layout:**
+```
+┌─ wearewatched dashboard ───────────────────────────────────┐
+│                                                            │
+│  All Sites               [Fingerprinting] [Permissions]    │
+│                                                            │
+│  Site            Fingerprint  Permissions  Last Visit      │
+│  ─────────────────────────────────────────────────────     │
+│  reddit.com      4 methods    2 APIs       2 min ago       │
+│  amazon.com      6 methods    1 API        1 hr ago        │
+│  facebook.com    5 methods    3 APIs       3 hrs ago       │
+│  wikipedia.org   0 methods    0 APIs       5 hrs ago  ✓    │
+│                                                            │
+│  ▾ reddit.com — detail                                     │
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │ Canvas toDataURL        × 12   scripts: gtm.js,     │  │
+│  │                                 fbevents.js          │  │
+│  │ Clipboard read          × 4    scripts: inline,      │  │
+│  │                                 reddit-app.js        │  │
+│  │ ... (expandable rows)                                │  │
+│  └──────────────────────────────────────────────────────┘  │
+└────────────────────────────────────────────────────────────┘
+```
+
+**What the POC proves:** That prototype wrapping catches real-world fingerprinting and permission access, that sites do both more often than users expect, and that a unified "device surveillance" view is more impactful than two separate tools.
 
 **Difficulty:** Medium
 
 ---
 
-## 5. wearecounted — Hidden Tracking Pixel & Beacon Visualizer
+## 4. wearecounted — Hidden Tracking Pixel & Beacon Visualizer
 
 **What it does.** Identifies and counts tracking pixels, invisible iframes, and beacon API calls — the invisible infrastructure of surveillance. Makes the invisible visible. Shows an overlay: "This page contains 14 hidden tracking pixels, 3 invisible iframes, and 2 beacon API calls" with the ability to highlight them in the DOM.
 
@@ -140,7 +164,7 @@ All local-first, no backend, things big tech won't build.
 
 ---
 
-## 6. wearedark — Dark Pattern Scorecard
+## 5. weareplayed — Dark Pattern Scorecard
 
 **What it does.** Assigns every website a manipulation score (0-100) based on dark patterns detected: countdown timers, pre-checked consent boxes, hidden unsubscribe flows, confirm-shaming language ("No thanks, I don't want to save money"), fake urgency ("Only 2 left!"), trick questions in opt-outs. Badge shows green/yellow/red per site. Results build up a personal "worst offenders" list.
 
@@ -168,7 +192,7 @@ All local-first, no backend, things big tech won't build.
 
 ---
 
-## 7. wearelinked — Redirect & Link Washing Exposer
+## 6. wearelinked — Redirect & Link Washing Exposer
 
 **What it does.** Before you click any link, hover to see where it actually goes. Shows the full redirect chain — revealing when a "clean" link actually bounces through tracking redirects. Strips UTM parameters, fbclid, gclid, and other tracking decorations. Shows: "This link goes through: google.com/url → t.co → bit.ly → actual-site.com (3 tracking hops removed)."
 
@@ -193,119 +217,103 @@ All local-first, no backend, things big tech won't build.
 
 **What the POC proves:** That most pages contain links with tracking parameters, that redirect wrappers are ubiquitous, and that a hover tooltip showing the real destination is immediately useful.
 
-**Difficulty:** Low–Medium
+**Difficulty:** Low-Medium
 
 ---
 
-## 8. weareexpired — Privacy Policy Change Monitor
+## 7. wearetosed — ToS Toxicity Scorecard
 
-**What it does.** Saves a local snapshot of the privacy policy/ToS for every site you visit. When you return and the text has changed, shows a diff: what was added, removed, and what matters. Highlights changes that affect you: new data sharing clauses, expanded tracking scope, reduced user rights. Badge: "Privacy policy changed since your last visit. 3 concerning changes detected."
+**What it does.** Scores every privacy policy and terms page from 0 to 100 based on red flags found in the text. No AI, no cloud lookups — regex pattern matching against page content. Navigate to any site's /privacy or /terms page and the badge lights up with a toxicity score. Detects 6 categories: data sharing/selling, tracking/profiling, indefinite retention, law enforcement access, rights/liability waivers, and unilateral control clauses.
 
-**Why no one has built it.** ToS;DR rates policies but doesn't track changes over time. The gap is personal, longitudinal monitoring — "what changed since I last agreed?" Doing it locally means no infrastructure costs and no privacy concerns.
+**Why no one has built it.** ToS;DR rates policies manually and can't keep up. No extension does real-time, local scoring of the actual policy text you're reading. The "toxicity scorecard" angle — scoring rather than summarizing — is immediate and shareable.
 
-**APIs:** Content scripts to detect and extract privacy policy content (heuristic URL matching: */privacy*, */terms*, */tos*). `storage` for snapshots. Text diffing in pure JS.
+**APIs:** Content scripts with URL pattern + title/h1 heuristics for policy page detection. 6 regex-based scanners against page text. `storage.session` for per-tab results. Badge scoring (green/orange/red).
 
-**Permissions:** `activeTab`, `storage`, `alarms` (for periodic checks)
+**Permissions:** `activeTab`, `storage`
 
 **POC scope:**
-- Content script that checks if the current URL matches common privacy policy patterns: `/privacy`, `/terms`, `/tos`, `/legal`, `/cookie-policy` (regex on `window.location.pathname`)
-- If matched, extract the main text content: `document.body.innerText` or target `<main>`/`<article>` if present, strip navigation/footer boilerplate
-- Hash the text content (simple string hash or first 10,000 chars) and send to background script with domain + full text
-- Background script stores in `browser.storage.local`: `{ domain: { hash, text, lastChecked, url } }`
-- On subsequent visits to the same domain's policy page: compare new hash to stored hash
-- If changed, compute a simple line-by-line diff (split by `\n`, find added/removed lines)
-- Send diff summary to popup
-- Badge shows "!" on domains where policy changed since last visit
-- Popup shows: domain, last checked date, "Changed" / "No change", and if changed: count of added/removed lines with a scrollable diff view (green for added, red for removed)
+- Content script checks if the current page is a policy/terms page using URL patterns (`/privacy`, `/terms`, `/tos`, `/legal`, `/cookie-policy`) and title/h1 heuristics
+- If matched, extracts main text content and runs 6 regex-based scanners:
+  1. **Data sharing & selling** — "share with third parties", "sell your data", "transfer to partners", "provide to affiliates"
+  2. **Tracking & profiling** — "track across websites", "build a profile", "collect browsing history", "web beacons", "automatically collect"
+  3. **Data retention** — "retain indefinitely", "keep as long as necessary", "even after you delete", "no obligation to delete"
+  4. **Law enforcement access** — "respond to subpoenas", "law enforcement requests", "cooperate with authorities", "national security"
+  5. **Rights & liability waivers** — "binding arbitration", "class action waiver", "waive your right", "as-is", "without warranties"
+  6. **Unilateral control** — "modify these terms at any time", "without prior notice", "sole discretion", "continued use constitutes acceptance"
+- Each category detected adds 20 points (max 100)
+- Badge color: green (0–20), orange (21–60), red (61–100)
+- Popup shows toxicity score, verdict, and breakdown by category with matched phrases
+- Non-policy pages show "Not a privacy policy or terms page"
 
-**What the POC proves:** That privacy policies change more often than users expect, that a simple text diff is sufficient to catch meaningful changes, and that the local snapshot approach works without any backend.
+**What the POC proves:** That simple regex catches the most common toxic clauses reliably, that virtually every major site scores high, and that a numeric "toxicity score" is more impactful than a wall of legal text.
 
-**Difficulty:** Medium
+**Difficulty:** Low-Medium
 
 ---
 
-## 9. wearesold — Data Broker Link Detector
+## 10. wearehere — Unified Privacy Dashboard
 
-**What it does.** Maintains a bundled list of known data broker domains (compiled from public sources: EFF, disconnect list, state data broker registries). As you browse, highlights when a page communicates with known data brokers — not just ad trackers, but companies that buy and sell personal information. Shows: "This page shared data with 3 known data brokers: Acxiom, Oracle Data Cloud, LiveRamp."
+**What it does.** Single dashboard that aggregates data from all weare____ extensions into one view. Phase 1: hub extension that reads from other extensions via `externally_connectable` messaging — each extension stays independent, wearehere just aggregates. Phase 2: consolidate all scanners into one monolith extension with tabs and a unified dashboard.
 
-**Why no one has built it.** Existing tools lump everything as "trackers" with no distinction between an analytics pixel and a data broker that literally sells your profile. No extension specifically names the data economy players in plain language.
+**Why wait.** Each standalone extension is small, focused, easy to review for store approval, and easy to explain. A monolith needs `<all_urls>`, `webRequest`, `storage`, `scripting` — scary permission set for users who just want one feature. Ship all standalone first, then aggregate.
 
-**APIs:** `webRequest` to monitor outbound requests. Bundled JSON domain list. `storage` for history.
+**Path:** Ship wearesilent (last standalone) → build wearehere as hub (reads from others) → if adoption is good, consolidate into monolith. Individual extensions become "lite" versions.
 
-**Permissions:** `webRequest`, `<all_urls>`, `storage`
-
-**POC scope:**
-- Compile a bundled JSON list of known data broker domains (start with ~50-100 from public sources):
-  - Data brokers: Acxiom, Oracle Data Cloud (BlueKai), LiveRamp, Lotame, Epsilon, Experian Marketing, TransUnion, Equifax, LexisNexis, Spokeo, BeenVerified, Whitepages, PeopleFinder
-  - Data marketplaces: Bombora, Eyeota, Intent IQ, Zeotap, Tapad, Drawbridge, Crosswise
-  - Format: `{ "domain": "acxiom.com", "name": "Acxiom", "type": "Data Broker", "description": "Consumer data aggregator" }`
-- Background script listens on `webRequest.onCompleted` for all requests
-- Check each request domain against the bundled list (root domain match)
-- Store matches per tab: `{ tabId: [{ broker, domain, url, timestamp }] }`
-- Badge shows count of data broker connections on current tab
-- Popup shows: "This page connected to X data brokers" with a list: broker name, what they do (one-line description), number of requests
-
-**What the POC proves:** That data broker connections are common on mainstream websites, and that naming the specific companies (not just "tracker") is more impactful for user understanding.
-
-**Difficulty:** Low
+**Difficulty:** Medium (hub) / High (monolith)
 
 ---
 
-## 10. weareopen — Third-Party Script Audit Dashboard
+## Pruned / Merged Extensions
 
-**What it does.** For every page you visit, itemizes every third-party script loaded: origin, size, category (analytics, advertising, social, payment, CDN). Shows a "page cost" breakdown: "This page loaded 47 third-party scripts from 23 companies, totaling 2.1MB."
+### ~~wearetracked~~ → Merged into wearewatched (#3)
 
-**Why no one has built it.** Mozilla's Lightbeam is discontinued. Ghostery is commercial and focused on blocking. No tool gives a detailed, per-page breakdown that a non-technical user can understand.
+**Reason:** Identical architecture (prototype wrapping + page-level script injection + postMessage relay). Different API targets (fingerprinting vs permissions) but same technique. Now lives as the "Fingerprinting" section in wearewatched's UI.
 
-**APIs:** `webRequest` to intercept script loads. `PerformanceObserver` / `performance.getEntriesByType('resource')` for size/timing. Bundled categorization list.
+### ~~wearesold~~ + ~~weareopen~~ → Merged into wearebaked (done, v0.5.1)
 
-**Permissions:** `webRequest`, `<all_urls>`, `storage`
+**What was done:** wearesold (data broker detector) and weareopen (third-party script audit) folded into wearebaked. 84 broker profiles in BROKER_META, ~54 new broker domains, broker popup with per-site verdict grouped by type, Data Broker dashboard section, 3P Scripts summary card. Firefox version includes ETP-aware broker detection (onBeforeRequest + onErrorOccurred).
 
-**POC scope:**
-- Background script listens on `webRequest.onCompleted` filtering for `types: ["script"]`
-- For each script request, extract domain and check if it's third-party (different root domain from tab URL)
-- Categorize using a bundled domain list (reuse tracker lists from wearebaked — Advertising, Analytics, Social, CDN, etc.)
-- Track per tab: `{ tabId: [{ domain, url, category, size (from Content-Length header), responseTime }] }`
-- Content script uses `performance.getEntriesByType('resource')` to get accurate transfer sizes for scripts and sends to background
-- Badge shows count of third-party scripts on current tab
-- Popup shows summary: total scripts, third-party count, total size, and a categorized list
-- Simple bar chart (CSS only, no library) showing breakdown by category
+### ~~wearecounted~~ → Folded into wearecooked (done, v3.0.0)
 
-**What the POC proves:** That the number and size of third-party scripts on typical websites is shocking, and that categorizing them makes the data meaningful to non-technical users.
-
-**Difficulty:** Medium
+**What was done:** Pixel/beacon detection from wearecounted folded into wearecooked. Content script scans for 1x1 tracking pixels, invisible iframes, `<link rel="prefetch">` to tracker domains, and intercepts `navigator.sendBeacon` calls. MutationObserver catches dynamically injected elements. 170+ tracker domains classified by company and purpose, with URL pattern fallback. Popup shows per-site verdict with breakdown by purpose/company, plus "Open Cookie Dashboard" link to the existing report. Badge shows red count when trackers found, gray "0" when clean.
 
 ---
 
 ## Summary
 
-| # | Extension | What it does | Status | Repo |
-|---|-----------|-------------|--------|------|
-| 1 | wearecooked | Shows which cookies websites drop on you | SHIPPED | [hamr0/wearecooked](https://github.com/hamr0/wearecooked) |
-| 2 | wearebaked | Detects third-party tracking requests on every page | SHIPPED | [hamr0/wearebaked](https://github.com/hamr0/wearebaked) |
-| 3 | weareleaking | Scans localStorage/sessionStorage for tracking data | SHIPPED | [hamr0/weareleaking](https://github.com/hamr0/weareleaking) |
-| 4 | wearecounted | Finds hidden tracking pixels, invisible iframes, and beacons | SHIPPED | [hamr0/wearecounted](https://github.com/hamr0/wearecounted) |
-| 5 | wearesold | Detects connections to known data broker companies | SHIPPED | [hamr0/wearesold](https://github.com/hamr0/wearesold) |
-| 6 | wearelinked | Exposes redirect chains and tracking parameters in links | — | — |
-| 7 | wearewatched | Monitors when sites access device permissions and sensors | — | — |
-| 8 | wearetracked | Shows fingerprinting techniques attempted by each page | — | — |
-| 9 | wearedark | Scores websites for dark pattern manipulation tactics | — | — |
-| 10 | weareexpired | Tracks privacy policy changes between visits | — | — |
-| 11 | weareopen | Audits every third-party script loaded per page | — | — |
-| 12 | wearesilent | Detects form input exfiltration before you click submit | — | — |
+| # | Extension | What it does | Chrome | Firefox | Repo |
+|---|-----------|-------------|--------|---------|------|
+| 1 | wearecooked | Cookie scanner + cleaner + pixel/beacon detector (popup + dashboard) | Pending | Pending | [hamr0/wearecooked](https://github.com/hamr0/wearecooked) |
+| 2 | wearebaked | Network traffic dashboard + data broker detector | Pending | Pending | [hamr0/wearebaked](https://github.com/hamr0/wearebaked) |
+| 3 | weareleaking | localStorage/sessionStorage tracking inspector | Pending | Pending | [hamr0/weareleaking](https://github.com/hamr0/weareleaking) |
+| 4 | ~~wearecounted~~ | ~~Hidden tracking pixels~~ → folded into wearecooked | — | — | archived |
+| 5 | wearelinked | Redirect chain + tracking parameter exposer | Pending | Pending | [hamr0/wearelinked](https://github.com/hamr0/wearelinked) |
+| 6 | wearewatched | Fingerprinting + permission access monitor | Pending | Pending | [hamr0/wearewatched](https://github.com/hamr0/wearewatched) |
+| 7 | weareplayed | Dark pattern scorecard | Pending | Pending | [hamr0/weareplayed](https://github.com/hamr0/weareplayed) |
+| 8 | wearetosed | ToS toxicity scorecard | Pending | Pending | [hamr0/wearetosed](https://github.com/hamr0/wearetosed) |
+| 9 | wearesilent | Form input exfiltration detector | Pending | Pending | [hamr0/wearesilent](https://github.com/hamr0/wearesilent) |
+| 10 | wearehere | Unified privacy dashboard | — | — | — |
+
+### Completed merges
+
+| Source | Target | Status |
+|--------|--------|--------|
+| wearesold + weareopen | wearebaked v0.5.1 | Done — 84 broker profiles, popup, ETP-aware detection |
+| wearecounted | wearecooked v3.0.0 | Done — pixel/beacon popup + badge, 170+ tracker domains |
 
 ## Priority Order — Next Up
 
 | # | Extension | Difficulty | Viral Potential | Build Order |
 |---|-----------|-----------|----------------|-------------|
-| 6 | wearelinked | Low–Med | Medium | Next — useful daily driver |
-| 7 | wearewatched | Medium | High | Prototype wrapping practice |
-| 8 | wearetracked | Medium | High | Similar technique to wearewatched |
-| 9 | wearedark | Medium | Medium | DOM heuristics |
-| 10 | weareexpired | Medium | Medium | Text diffing |
-| 11 | weareopen | Medium | Medium | Builds on wearebaked patterns |
-| 12 | wearesilent | High | Very High | Hardest but biggest payoff |
+| 6 | ~~wearewatched~~ | ~~Medium~~ | ~~High~~ | **Done** — Chrome + Firefox, pending store review |
+| 7 | ~~weareplayed~~ | ~~Medium~~ | ~~Medium~~ | **Done** — Chrome + Firefox, pending store review |
+| 8 | ~~wearetosed~~ | ~~Low-Medium~~ | ~~Medium~~ | **Done** — Chrome + Firefox, pending store review |
+| 9 | ~~wearesilent~~ | ~~High~~ | ~~Very High~~ | **Done** — Chrome + Firefox, pending store review |
+| 10 | wearehere | Medium-High | High | After all standalone extensions ship |
 
+##TODO List
+cancel wearecounted from chrome
+resubmit new fixed chrome package wearetosed
 ---
 
 ## Sources

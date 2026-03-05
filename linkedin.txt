@@ -73,3 +73,54 @@ This is the third tool in the weare.. series. Each one pulls back a different cu
 All free. All open source. Nothing leaves your browser.
 
 More curtains to pull. GitHub: https://github.com/hamr0
+
+#wearelinked
+
+You click a link on Google. You think you're going straight to the website. You're not.
+
+Your click gets routed through Google first — so they can log exactly what you clicked, when, and where you came from. Then you arrive at the page. Facebook does the same thing. YouTube does it. Outlook does it. Every major platform records your click before they let you leave.
+
+That's just half of it.
+
+Ever notice those long, ugly URLs with a bunch of random characters at the end? Those aren't random. They're tracking tags. They tell the website you're visiting exactly which ad, email, or social media post brought you there. You're basically walking into a store wearing a name tag that says "I came from the Facebook ad" — and you never agreed to put it on.
+
+One system tracks you leaving. The other tracks you arriving. Every click is logged twice.
+
+I built wearelinked to make this visible.
+
+Hover over any link on any page — it shows you where the link actually goes and who's watching the click. Red underlines flag every tracked link. No tech knowledge needed. Just hover and see the truth.
+
+It doesn't block anything. It doesn't break anything. It just shows you what was always there.
+
+This is the fourth tool in the weare__ series:
+
+- wearecooked — cookies they drop on you (now with tracking pixel detection)
+- wearebaked — domains they phone home to (now with data broker detection)
+- weareleaking — data they hide on your machine
+- wearelinked — links that track your clicks
+
+All free. All open source. Nothing leaves your browser. Submitted to Chrome + Firefox stores.
+
+Every link is a leash. At least now you can see it. GitHub: https://github.com/hamr0
+
+---
+
+## LinkedIn Post Tracker
+
+| # | Extension | Posted | Store Status |
+|---|-----------|--------|--------------|
+| 1 | wearecooked | Yes | Pending (Chrome + Firefox) |
+| 2 | wearebaked | Yes | Pending (Chrome + Firefox) |
+| 3 | weareleaking | Yes | Pending (Chrome + Firefox) |
+| 4 | wearelinked | Yes | Pending (Chrome + Firefox) |
+| 5 | wearewatched | No | Pending (Chrome + Firefox) |
+| 6 | weareplayed | No | Pending (Chrome + Firefox) |
+| 7 | wearetosed | No | Pending (Chrome + Firefox) |
+| 8 | wearesilent | No | Pending (Chrome + Firefox) |
+
+### Next LinkedIn posts (in order)
+1. **wearelinked** — redirect chains + tracking parameter stripping. Already published on both stores, strong demo potential (hover any link, see where it really goes)
+2. **wearewatched** — fingerprinting + permission snooping
+3. **weareplayed** — dark pattern scorecard
+4. **wearetosed** — ToS toxicity scorecard
+5. **wearesilent** — form input exfiltration (the finale, highest viral potential)

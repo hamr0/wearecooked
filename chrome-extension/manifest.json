@@ -1,16 +1,30 @@
 {
   "manifest_version": 3,
   "name": "wearecooked",
-  "version": "2.0.0",
-  "description": "Scan cookies, see who tracks you, and clean trackers in one click. Local-only — no data leaves your browser.",
-  "permissions": ["cookies"],
-  "optional_host_permissions": ["<all_urls>"],
+  "version": "4.0.0",
+  "description": "See what cookies websites drop on you — and the hidden pixels that deliver them.",
+  "permissions": ["cookies", "storage"],
+  "host_permissions": ["<all_urls>"],
   "action": {
-    "default_title": "wearecooked - Cookie Report"
+    "default_title": "wearecooked",
+    "default_popup": "popup.html"
   },
   "background": {
     "service_worker": "background.js"
   },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["inject.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "icons": {
     "48": "icon48.png",
     "128": "icon128.png"

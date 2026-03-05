@@ -373,8 +373,8 @@ function renderReport(cookies) {
   </div>
   <div id="table-content" style="display:none">
     <div class="filters">
-      <input type="text" id="search" placeholder="Search domain or cookie name..." oninput="filterTable()">
-      <select id="catFilter" onchange="filterTable()">
+      <input type="text" id="search" placeholder="Search domain or cookie name...">
+      <select id="catFilter">
         <option value="">All Categories</option>
         ${catItems.map(([cat, cnt]) => `<option value="${esc(cat)}">${esc(cat)} (${cnt})</option>`).join("")}
       </select>
@@ -383,13 +383,13 @@ function renderReport(cookies) {
       <table id="cookieTable">
         <thead>
           <tr>
-            <th onclick="sortTable(0)">Domain</th>
-            <th onclick="sortTable(1)">Name</th>
-            <th onclick="sortTable(2)">Value</th>
-            <th onclick="sortTable(3)">Path</th>
-            <th onclick="sortTable(4)">Expires</th>
+            <th data-sort="0">Domain</th>
+            <th data-sort="1">Name</th>
+            <th data-sort="2">Value</th>
+            <th data-sort="3">Path</th>
+            <th data-sort="4">Expires</th>
             <th>Flags</th>
-            <th onclick="sortTable(6)">Category</th>
+            <th data-sort="6">Category</th>
           </tr>
         </thead>
         <tbody>
@@ -436,6 +436,21 @@ function renderReport(cookies) {
         : "click to collapse";
     });
   }
+
+  // Search and filter (no inline handlers for MV3 CSP)
+  var searchEl = document.getElementById("search");
+  var catFilterEl = document.getElementById("catFilter");
+  if (searchEl) searchEl.addEventListener("input", filterTable);
+  if (catFilterEl) catFilterEl.addEventListener("change", filterTable);
+
+  // Sort headers
+  var sortHeaders = document.querySelectorAll("#cookieTable th[data-sort]");
+  sortHeaders.forEach(function(th) {
+    th.style.cursor = "pointer";
+    th.addEventListener("click", function() {
+      sortTable(parseInt(th.dataset.sort, 10));
+    });
+  });
 }
 
 // --- Table interactivity ---

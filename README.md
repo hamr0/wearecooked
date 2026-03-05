@@ -16,84 +16,23 @@ Everything runs locally. No data leaves your browser. No accounts. No servers. N
 
 Available as a **Chrome extension**, **Firefox extension** (incl. Android), **Safari extension** (macOS), and **Python CLI** (Linux).
 
-## Install
+## Try It Now
 
-**Chrome** — [Chrome Web Store](https://chromewebstore.google.com/) _(pending review)_
+Store approval pending — install locally in under a minute:
 
-**Firefox** — [Firefox Add-ons](https://addons.mozilla.org/) _(pending review)_
+### Chrome
+1. Download this repo (Code → Download ZIP) and unzip
+2. Go to `chrome://extensions` and turn on **Developer mode** (top right)
+3. Click **Load unpacked** → select the `chrome-extension` folder
+4. That's it — browse any site and click the extension icon
 
-**Safari** — Built via GitHub Actions (requires macOS). Download the `.app` artifact from the [Actions tab](../../actions/workflows/build-safari.yml), or build from source (see below).
+### Firefox
+1. Download this repo (Code → Download ZIP) and unzip
+2. Go to `about:debugging#/runtime/this-firefox`
+3. Click **Load Temporary Add-on** → pick any file in the `firefox-extension` folder
+4. That's it — browse any site and click the extension icon
 
-Click the extension icon to see a per-site verdict of hidden tracking pixels, invisible iframes, and beacon calls. Click "Open Cookie Dashboard" to view the full cookie report.
-
-- **Chrome**: first time the cookie dashboard opens a "Scan Cookies" button (Chrome requires a click to grant permission). After that, reports auto-load instantly.
-- **Firefox**: reports auto-load every time (permissions granted at install).
-- **Safari**: reports auto-load every time (same as Firefox — uses `browser.*` API).
-
-### Load from source (developer mode)
-
-**Chrome/Chromium:**
-1. Open `chrome://extensions/` → enable **Developer mode**
-2. Click **Load unpacked** → select the `chrome-extension/` folder
-3. Browse to any site — the badge shows hidden tracker count
-4. Click the extension icon to see the popup verdict
-5. To test changes: make edits → go back to `chrome://extensions/` → click the refresh icon on the extension card → reload the page
-
-**Firefox:**
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click **Load Temporary Add-on** → select `firefox-extension/manifest.json`
-3. Browse to any site — the badge shows hidden tracker count
-4. Click the extension icon to see the popup verdict
-5. To test changes: make edits → go back to `about:debugging` → click **Reload** on the extension card → reload the page
-6. Note: temporary add-ons are removed when Firefox closes — reload each session
-
-**Safari (macOS only):**
-1. Build the Xcode project (see "Building the Safari extension" below), or download the `.app` from GitHub Actions
-2. Run the generated `wearecooked.app` once to register the extension
-3. Open Safari → Settings → Extensions → enable **wearecooked**
-4. Click the extension icon in the toolbar to see the popup verdict
-5. To test source changes: re-run `xcrun safari-web-extension-converter` and rebuild
-
-**Manual testing checklist:**
-- [ ] Badge shows red count on tracker-heavy sites (cnn.com, amazon.com)
-- [ ] Badge shows gray "0" on clean sites
-- [ ] Click icon → popup shows domain, count, and verdict message
-- [ ] Popup breakdown groups trackers by purpose (Advertising, Analytics, etc.)
-- [ ] "Open Cookie Dashboard" link opens report.html in a new tab
-- [ ] Cookie report loads and shows cookie data
-- [ ] Tagline "Your browser's cookie activity at a glance" appears in the report
-- [ ] "Last scanned" timestamp is shown in the report
-- [ ] Auto-refresh checkbox is checked by default and rescans every 60s
-- [ ] Logo (detective icon with white circle) appears in the page header and browser tab
-- [ ] Cookie Cleaner link works from the CTA banner and footer
-- [ ] Cleaner page loads, pre-selects trackers, and deletion works
-- [ ] Table toggle expands/collapses the full cookie list
-- [ ] MutationObserver catches dynamically injected trackers (badge updates after page load)
-
-## Building the Safari extension
-
-Safari Web Extensions require Xcode on macOS. A GitHub Actions workflow (`.github/workflows/build-safari.yml`) automates this on every push to `main`:
-
-1. `xcrun safari-web-extension-converter` converts `safari-extension/` into an Xcode project
-2. `xcodebuild` builds the `.app` (unsigned, for local development)
-3. The `.app` is uploaded as a GitHub Actions artifact
-
-**To build locally (macOS):**
-
-```bash
-# Convert the web extension into an Xcode project
-xcrun safari-web-extension-converter ./safari-extension \
-  --app-name wearecooked \
-  --bundle-identifier com.wearecooked.extension \
-  --no-prompt --no-open --copy-resources
-
-# Build the Xcode project (unsigned)
-cd wearecooked
-xcodebuild -scheme "wearecooked (macOS)" -configuration Release \
-  CODE_SIGN_IDENTITY=- CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO
-```
-
-The Safari extension source is identical to Firefox (same `browser.*` API, MV2 manifest) with the `browser_specific_settings.gecko` block removed.
+> Firefox temporary add-ons reset when you close the browser — just re-load next session.
 
 ## What's new in v3.0.0
 

@@ -103,6 +103,38 @@ All free. All open source. Nothing leaves your browser. Submitted to Chrome + Fi
 
 Every link is a leash. At least now you can see it. GitHub: https://github.com/hamr0
 
+#wearewatched
+
+You don't need cookies to be tracked. You don't even need to log in. You don't even need to leave incognito.
+
+Your device is already unique. Your graphics card, your processor, your language settings, even the way your screen draws an invisible image — put it together and it's a fingerprint. More accurate than a cookie. And unlike a cookie, you can't delete it.
+
+Here's how it actually works. You sign into Google once. They capture how your device looks — your screen, your hardware, the way it renders things. Now that fingerprint is tied to your account. Later, you open incognito, don't sign in, and browse. Doesn't matter. Your graphics card didn't change. Your processor didn't change. The fingerprint is the same. They match it back to you.
+
+Incognito hides your history from your roommate. It doesn't hide your device from Google.
+
+Google's ad network sits on roughly 80% of websites. Meta's tracking pixel is on millions more. Data brokers like LiveRamp and Experian buy and sell "identity graphs" — databases that link your anonymous browsing to your real name, email, and purchase history. Your fingerprint is the key that connects all of it.
+
+While that's happening, some sites are also quietly trying to read your clipboard, track your location, or request notification access — often before you've scrolled past the headline. No banner. No opt-out. Most people don't know it's possible.
+
+I built wearewatched to make it visible.
+
+Open any page. Click the extension. See exactly what the site is doing, in plain English. "Drew a hidden image to ID your device." "Read your graphics card info." "Tried to read your clipboard." Each one counted. Each one explained.
+
+Green means clean. Yellow means suspicious. Red means they're profiling your machine.
+
+This is the fifth tool in the weare____ series:
+
+- wearecooked — cookies they drop on you
+- wearebaked — domains they phone home to
+- weareleaking — data they hide on your machine
+- wearelinked — links that track your clicks
+- wearewatched — tricks that fingerprint your device
+
+All free. All open source. Nothing leaves your browser. Submitted to Chrome + Firefox stores.
+
+Cookies you can clear. Fingerprints, you can't. But at least now you can see who's taking them. GitHub: https://github.com/hamr0
+
 ---
 
 ## LinkedIn Post Tracker
@@ -113,14 +145,12 @@ Every link is a leash. At least now you can see it. GitHub: https://github.com/h
 | 2 | wearebaked | Yes | Pending (Chrome + Firefox) |
 | 3 | weareleaking | Yes | Pending (Chrome + Firefox) |
 | 4 | wearelinked | Yes | Pending (Chrome + Firefox) |
-| 5 | wearewatched | No | Pending (Chrome + Firefox) |
+| 5 | wearewatched | Yes | Pending (Chrome + Firefox) |
 | 6 | weareplayed | No | Pending (Chrome + Firefox) |
 | 7 | wearetosed | No | Pending (Chrome + Firefox) |
 | 8 | wearesilent | No | Pending (Chrome + Firefox) |
 
 ### Next LinkedIn posts (in order)
-1. **wearelinked** — redirect chains + tracking parameter stripping. Already published on both stores, strong demo potential (hover any link, see where it really goes)
-2. **wearewatched** — fingerprinting + permission snooping
-3. **weareplayed** — dark pattern scorecard
-4. **wearetosed** — ToS toxicity scorecard
-5. **wearesilent** — form input exfiltration (the finale, highest viral potential)
+1. **weareplayed** — dark pattern scorecard
+2. **wearetosed** — ToS toxicity scorecard
+3. **wearesilent** — form input exfiltration (the finale, highest viral potential)

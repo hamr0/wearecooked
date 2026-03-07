@@ -284,13 +284,13 @@ All local-first, no backend, things big tech won't build.
 | # | Extension | What it does | Chrome | Firefox | Repo |
 |---|-----------|-------------|--------|---------|------|
 | 1 | wearecooked | Cookie scanner + cleaner + pixel/beacon detector (popup + dashboard) | Pending | Pending | [hamr0/wearecooked](https://github.com/hamr0/wearecooked) |
-| 2 | wearebaked | Network traffic dashboard + data broker detector | Pending | Pending | [hamr0/wearebaked](https://github.com/hamr0/wearebaked) |
-| 3 | weareleaking | localStorage/sessionStorage tracking inspector | Pending | Pending | [hamr0/weareleaking](https://github.com/hamr0/weareleaking) |
+| 2 | wearebaked | Network traffic dashboard + data broker detector | Pending | Live | [hamr0/wearebaked](https://github.com/hamr0/wearebaked) |
+| 3 | weareleaking | localStorage/sessionStorage tracking inspector | Pending | Live | [hamr0/weareleaking](https://github.com/hamr0/weareleaking) |
 | 4 | ~~wearecounted~~ | ~~Hidden tracking pixels~~ → folded into wearecooked | — | — | archived |
-| 5 | wearelinked | Redirect chain + tracking parameter exposer | Pending | Pending | [hamr0/wearelinked](https://github.com/hamr0/wearelinked) |
-| 6 | wearewatched | Fingerprinting + permission access monitor | Pending | Pending | [hamr0/wearewatched](https://github.com/hamr0/wearewatched) |
-| 7 | weareplayed | Dark pattern scorecard | Pending | Pending | [hamr0/weareplayed](https://github.com/hamr0/weareplayed) |
-| 8 | wearetosed | ToS toxicity scorecard | Pending | Pending | [hamr0/wearetosed](https://github.com/hamr0/wearetosed) |
+| 5 | wearelinked | Redirect chain + tracking parameter exposer | Pending | Live | [hamr0/wearelinked](https://github.com/hamr0/wearelinked) |
+| 6 | wearewatched | Fingerprinting + permission access monitor | Pending | Live | [hamr0/wearewatched](https://github.com/hamr0/wearewatched) |
+| 7 | weareplayed | Dark pattern scorecard | Pending | Live | [hamr0/weareplayed](https://github.com/hamr0/weareplayed) |
+| 8 | wearetosed | ToS toxicity scorecard | Pending | Live | [hamr0/wearetosed](https://github.com/hamr0/wearetosed) |
 | 9 | wearesilent | Form input exfiltration detector | Pending | Pending | [hamr0/wearesilent](https://github.com/hamr0/wearesilent) |
 | 10 | wearehere | Unified privacy dashboard | — | — | — |
 

@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "wearecooked phase1 cookie scoper POC",
+  "version": "0.0.1",
+  "description": "POC — NOT FOR DISTRIBUTION. Rewrites long-lived cookies to session-scoped on a single hardcoded test domain.",
+  "permissions": ["cookies"],
+  "host_permissions": [
+    "*://example.com/*",
+    "*://*.example.com/*"
+  ],
+  "background": {
+    "service_worker": "scoper-poc.js"
+  }
+}

@@ -164,8 +164,25 @@ async function initialSweep(trigger) {
   }
 
   const stats = { scanned: cookies.length, rewrites, demotions, skips, failures };
+  await updateScoperStats(rewrites, demotions);
   console.log("[wearecooked v5 sweep] done (trigger=" + trigger + "):", stats);
   return stats;
+}
+
+// Lifetime counters surfaced in the popup. Only the work-done path
+// updates these — gated sweeps don't touch them. Reads + writes are
+// not concurrency-protected because the dedup gate makes overlapping
+// sweeps in production effectively impossible.
+async function updateScoperStats(deltaRewrites, deltaDemotions) {
+  const { scoperStats } = await chrome.storage.local.get("scoperStats");
+  const prev = scoperStats || { rewrites: 0, demotions: 0 };
+  await chrome.storage.local.set({
+    scoperStats: {
+      rewrites: prev.rewrites + deltaRewrites,
+      demotions: prev.demotions + deltaDemotions,
+      lastSweepAt: Date.now(),
+    },
+  });
 }
 
 self.initialSweep = initialSweep;

@@ -346,6 +346,20 @@ const fixtures = [
     pass("pass-2 idempotency (re-sweep skips everything)");
   }
 
+  // ---- Lifetime stats counter ------------------------------------------
+  const { scoperStats } = await chromeStub.storage.local.get("scoperStats");
+  const wantRewrites = pass1.rewrites + pass2.rewrites;  // pass2 is 0; total still equals pass1.rewrites
+  const wantDemotions = pass1.demotions + pass2.demotions;
+  if (!scoperStats) {
+    fail("scoperStats written to storage.local", "scoperStats undefined");
+  } else if (scoperStats.rewrites !== wantRewrites || scoperStats.demotions !== wantDemotions) {
+    fail("scoperStats accumulates rewrites+demotions", "want {rewrites:" + wantRewrites + ",demotions:" + wantDemotions + "} got " + JSON.stringify(scoperStats));
+  } else if (typeof scoperStats.lastSweepAt !== "number" || Date.now() - scoperStats.lastSweepAt > 5000) {
+    fail("scoperStats.lastSweepAt is recent", "got " + scoperStats.lastSweepAt);
+  } else {
+    pass("scoperStats {rewrites:" + scoperStats.rewrites + ", demotions:" + scoperStats.demotions + ", lastSweepAt:recent}");
+  }
+
   console.log("\n" + passed + " passed, " + failed + " failed (" + originalCount + " cookies seeded, " + cookieStore.size + " in store post-sweep)");
   process.exit(failed === 0 ? 0 : 1);
 })();

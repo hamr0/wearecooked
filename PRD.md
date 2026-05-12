@@ -1,6 +1,10 @@
 # wearecooked v5 — PRD
 
 > Status: planning. v4.0.0 is the live baseline (cookie + pixel scanner, detection only). This PRD covers an experimental revival that adds two interventions — cookie scoping and fingerprint farbling — to the existing detector shell.
+>
+> **Source correction (2026-05-12).** Original draft named *Cookie AutoDelete* as the cookie-pattern source; investigation showed CAD bundles no curated list — it's a user-expressions framework. Switched to the **Open Cookie Database** (jkwakman/Open-Cookie-Database, Apache-2.0, 2,264 cookies / 354 vendors / 6 categories). Same shape, better data. Already landed in wearehere as `chrome-extension/cookie-database.js`; wearecooked v5 will vendor that snapshot.
+>
+> **Process discipline.** Work on v5 follows the project agent rules at `.claude/memory/AGENT_RULES.md` (in the wearehere repo; mirrored conceptually here). Hard rules for this experiment: **POC first on a new branch**, vanilla → stdlib → external dependency hierarchy, surgical changes only, responsive UI for any dashboard work. POCs validate happy path + 2-3 common edges; they are never shipped — they graduate into a designed module after the idea is proven.
 
 The experiment is bounded. Phase 3 has an explicit decision point: keep + maintain, split into siblings, or re-archive. Don't expand scope before that decision.
 
@@ -26,7 +30,7 @@ Considered alternatives:
 - Bundle the Public Suffix List (~30KB gzipped) for correct eTLD+1 third-party classification. `.co.uk` and friends can't be heuristic'd.
 - Trust list lives in `chrome.storage.local`, keyed by eTLD+1, with explicit expiry (default 30d). Renewed by user action only.
 - Loop prevention: filter `cause === 'overwrite'` (our own rewrites refire), dedupe by `name|domain|path` for 500ms.
-- Borrowed knowledge feeds classification — phase 0 in wearehere extracts Cookie AutoDelete's tracker-name list; wearecooked v5 consumes the same file.
+- Borrowed knowledge feeds classification — phase 0 in wearehere has landed `cookie-database.js` (Open Cookie Database snapshot, 1,989 exact + 260 prefix entries); wearecooked v5 vendors this file unchanged.
 
 **What we can't do:**
 
@@ -99,8 +103,8 @@ The features lean on prior art from two archived/dying projects. The plan is to 
 
 | Source | License | What we lift | Why it's OK |
 |---|---|---|---|
-| **Cookie AutoDelete** ([github.com/Cookie-AutoDelete/Cookie-AutoDelete](https://github.com/Cookie-AutoDelete/Cookie-AutoDelete)) | GPL-3.0 | Curated cookie-name tracker-pattern list (~200 entries: `__utma`, `_ga`, `_fbp`, `IDE`, `MUID`, …); essential-cookie allowlist for top sites (banking, gov, mail) | Lists are facts (not copyrightable in US; weak DB right in EU). Lifted with attribution, not as derived code. Phase 0 in wearehere extracts this; wearecooked v5 reads the same file. |
-| **JShelter** ([jshelter.org](https://jshelter.org), code on Pagure) | GPL-3.0 | Enumerated list of fingerprint surfaces to wrap (~200 properties/methods); algorithm specs for canvas/audio/WebGL farbling, font enumeration limits, time-precision reduction | Algorithms not copyrightable. Surface list is facts. Implementations rewritten fresh. If we ever lift a JShelter source file verbatim, it lives in a GPL-3-licensed sub-package with its own NOTICE; otherwise wearecooked v5 stays MIT. |
+| **Open Cookie Database** ([github.com/jkwakman/Open-Cookie-Database](https://github.com/jkwakman/Open-Cookie-Database)) | Apache-2.0 | Curated 2,264-cookie classification (1,989 exact + 260 prefix patterns) × {Analytics, Marketing, Functional, Necessary, Security, Personalization} across 354 vendors | Lifted as factual data with attribution. Apache-2.0 imposes no infection on wearecooked's MIT shell. Already vendored in wearehere (`cookie-database.js`); wearecooked v5 imports the same snapshot. |
+| **JShelter** ([jshelter.org](https://jshelter.org), GitHub mirror [patrik-dekys/JShelter-webextension](https://github.com/patrik-dekys/JShelter-webextension)) | GPL-3.0 | Enumerated list of fingerprint surfaces (~149 properties/methods in `wrappers-lvl_0_1.json`); algorithm specs for canvas/audio/WebGL farbling, font enumeration limits, time-precision reduction | Algorithms not copyrightable. Surface list is facts (already vendored in wearehere as `fingerprint-surfaces.js`); wearecooked v5 imports it. Implementations rewritten fresh — never lift JShelter source files. If we ever need to lift a JShelter source file verbatim, it lives in a GPL-3-licensed sub-package with its own NOTICE; otherwise wearecooked v5 stays MIT. |
 | **CanvasBlocker** ([github.com/kkapsner/CanvasBlocker](https://github.com/kkapsner/CanvasBlocker)) | MPL-2.0 | Canvas-specific spoofing reference | MPL is per-file; can sub-module a verbatim file under MPL while wearecooked stays MIT. |
 | **Brave farbling** (`brave-core`) | MPL-2.0 | Published algorithm specs (renderer-level C++; not directly liftable) | Spec is reference material; reimplementation in JS is greenfield. |
 
@@ -116,9 +120,11 @@ Three ways Chrome can outplay an extension, and what actually happened:
 2. **API surface reduction** — Chrome narrows what the API can do. **Did not happen** for our use cases.
 3. **Native feature absorption** — Chrome ships the behavior in-browser. **Partial:** 3p-cookie controls landed but per-site auto-scope + farbling did not. Chrome has no native equivalent for the hard parts.
 
-What did happen: Cookie AutoDelete's maintainer stepped away (~2022-2023). JShelter has slow upstream cadence and EFF funding cycle dependencies. Single-maintainer projects starved out by MV3 port cost, not by API death. The *knowledge* in both projects is current and load-bearing.
+What did happen: cookie-side prior art is scattered across maintenance-mode tools (Cookie AutoDelete) and active data sources (Open Cookie Database, the actual seed of most consent-tool ecosystems). JShelter has slow upstream cadence and EFF funding cycle dependencies. Single-maintainer projects starved out by MV3 port cost, not by API death. The *knowledge* in both areas is current and load-bearing.
 
 Conclusion: the case for reviving the techniques is strong; the case for porting the codebases is weak. Lift the knowledge, write fresh code in our shell.
+
+**Process learning from Phase 0 itself:** the original PRD draft pointed at Cookie AutoDelete for the cookie-name list. Investigation showed CAD bundles no curated list — it's a framework, not a dataset. The Open Cookie Database (which seeds most consent-tool ecosystems) is the correct source. The discipline of "verify the prior art before committing the integration" earned its keep here, and reinforces the AGENT_RULES POC-first principle even for documentation work.
 
 ## Out of scope for v5
 
@@ -135,10 +141,60 @@ Conclusion: the case for reviving the techniques is strong; the case for porting
 - **Telemetry.** Currently *none* — matches the "no data leaves your browser" promise. If we need to measure scope-then-broke-site rate, that's an in-browser counter the user can voluntarily share, not auto-uploaded.
 - **Interaction with wearehere's score.** wearehere observes; wearecooked v5 alters. wearehere's score on a scoped/farbled site will be lower than reality. Acceptable — the install-flow recommends wearecooked, so the lower score *is* the success metric.
 
-## Concrete next steps (do not execute from this PRD)
+## What's next — pick up here
 
-1. Phase 0 in wearehere — extract Cookie AutoDelete tracker-name list into a data file. Unblocks both wearehere classification *and* wearecooked v5 phase 1.
-2. POC: 20-line script in wearecooked v5 that does `chrome.cookies.onChanged` → re-set with `session: true` for everything third-party, on a single test domain. Validate round-trip with no real policy module.
-3. If POC works, write the full scoper module + PSL bundle + trust list + popup wiring.
-4. Ship v5.0.0-alpha behind a default-off toggle. Real-user dogfood for a week.
-5. Phase 2 fingerprint work begins only after phase 1 is stable.
+All future work on v5 follows `.claude/memory/AGENT_RULES.md` (see "Process discipline" at top). The first move on resuming is always a POC on a feature branch — never directly on `main`.
+
+### Status of upstream Phase 0 (already done, in wearehere)
+
+- ✅ `chrome-extension/cookie-database.js` — Open Cookie Database snapshot (1,989 exact + 260 prefix patterns). Apache-2.0, NOTICE attribution.
+- ✅ `chrome-extension/fingerprint-surfaces.js` — JShelter wrappers-lvl_0_1 snapshot (149 surfaces, 12 categories). GPL-3.0 source, factual lift, NOTICE attribution.
+- ⏳ Wiring into wearehere's runtime classification (separate change).
+
+### Phase 1 (cookie scoper) — pick up sequence
+
+1. **Create feature branch** — `git checkout -b phase1-cookie-scoper`. All POC and module work lives on this branch until graduation.
+2. **POC** (~15 min, branch only, never merged) — minimal `chrome.cookies.onChanged` → `chrome.cookies.set` round-trip on a single test domain. Hardcoded values fine. Validate:
+   - Happy path: third-party cookie set with 1-year expiry → rewritten as session cookie within ~50ms.
+   - Edge 1: our own rewrite doesn't infinite-loop (`cause === 'overwrite'` filter).
+   - Edge 2: `__Host-` prefixed cookie either rewrites with all attributes preserved, or is skipped cleanly (no Chrome rejection logs).
+   POC validates the API surface works as imagined; if it does, stop and design properly.
+3. **Vendor `cookie-database.js`** from wearehere into wearecooked at the same snapshot SHA. Pin in NOTICE.
+4. **Bundle PSL** — vanilla-language solution preferred. Generate a static `psl.js` (Set of public suffixes) from `publicsuffix.org/list/public_suffix_list.dat`. No npm dep; one-time build script in `tools/`.
+5. **Build the scoper module incrementally**, smallest pieces first, each working in isolation before the next:
+   - `scoper.js` (pure policy function, no Chrome APIs) — testable in console.
+   - `chrome.cookies.onChanged` listener with dedupe map.
+   - Trust list in `chrome.storage.local`, explicit-add only.
+   - Popup toggle (responsive — already small, but verify on narrow viewport).
+   - Counter ("N cookies scoped on this site") on the existing cookies card.
+6. **Decision points to revisit at design time** — the 10 policy defaults in the Phase 1 table above. Each is a default, not a constraint.
+7. **Ship as v5.0.0-alpha**, default OFF, dogfood for ~1 week before defaulting ON.
+
+### Phase 2 (fingerprint farbler) — gates and pick-up sequence
+
+Phase 2 begins **only after Phase 1 is stable in real use for ≥2 weeks with no significant site-breakage reports.** Anti-bot vendor detection risk is real and isolated debugging of two interventions at once is hard.
+
+1. **Create feature branch** — `git checkout -b phase2-fingerprint-farbler` off the stabilized main.
+2. **POC** (~15 min) — promote a single existing `inject.js` wrapper from notify-only to lie-only on a test page. Example: `WebGL.getParameter(UNMASKED_RENDERER_WEBGL)` → fixed generic string. Validate happy path + that real WebGL rendering still works on a non-fingerprint test site.
+3. **Vendor `fingerprint-surfaces.js`** from wearehere at pinned snapshot SHA.
+4. **Incremental wrapper rollout**, low-risk surfaces first (constants), then farbling (noise) last:
+   - Tier A constants: `WebGL.getParameter`, `navigator.hardwareConcurrency`, `navigator.deviceMemory`, `navigator.languages`, `navigator.platform`, `screen.*` buckets, `performance.now()` precision.
+   - Tier B farbling: canvas pixel noise (deterministic seed = `HMAC(secret, originHost + sessionId)`), audio buffer noise, font enumeration cap.
+   - Stop after Tier A if site-breakage reports surface; Tier B is the higher-risk slice.
+5. **Per-origin allowlist** (mirrors the cookie trust list) for users who hit anti-bot challenges.
+6. **Ship as v5.1.0-alpha** with both halves, default OFF on the farbler.
+
+### Phase 3 — decide
+
+After ~30 days of real v5.x use:
+- Keep + maintain as one extension if both halves see use and neither drags the other.
+- Split into siblings (revive `wearewatched` for the fingerprint half) if one feature dominates installs or breaks sites materially.
+- Re-archive if neither half clears the pre-defined bar (≥100 weekly active installs combined OR ≥1 substantive bug-report-with-fix per month). Bar is set *before* launch; don't move it after.
+
+### Open items the next agent should not re-derive
+
+- Cookie AutoDelete is the wrong source — Open Cookie Database is the right source. Don't re-investigate.
+- Lift lists/algorithms, not codebases. Never `git submodule add` an upstream extension repo.
+- wearehere's PRD has already done Phase 0 extraction; vendor those exact files, don't re-fetch from upstream unless versioning forces it.
+- The 10 cookie policy decisions are documented above. Each is a default, not a debate to reopen.
+- Tier A vs Tier B fingerprint rollout order is deliberate — constants first because they're low-risk; farbling last because anti-bot detection asymmetry makes it the dangerous one.

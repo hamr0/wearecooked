@@ -1,162 +1,155 @@
 "use strict";
 
-var PURPOSE_ORDER = ["Advertising", "Analytics", "Marketing", "Data broker", "Error tracking", "Consent", "CDN", "Infrastructure", "Content", "Customer support"];
+// popup.js — wearecooked v5 scoper popup.
+//
+// Reads chrome.storage.local directly (same extension, full access) for
+// stats + trust list, and computes the active tab's eTLD+1 via the
+// scoperPolicy module if available. The "Sweep now" button posts a
+// "sweep:now" message to the SW so the manual run goes through the
+// real sweep code path.
 
-document.addEventListener("DOMContentLoaded", function () {
-  chrome.runtime.sendMessage({ type: "getResults" }, function (data) {
-    render(data);
+document.addEventListener("DOMContentLoaded", init);
+
+async function init() {
+  const [stats, trust, activeTab] = await Promise.all([
+    getLocal("scoperStats"),
+    getLocal("scoperTrust"),
+    getActiveTab(),
+  ]);
+  renderStats(stats);
+  renderSite(activeTab, trust || {});
+  wireSweepButton();
+}
+
+function getLocal(key) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(key, (obj) => resolve(obj && obj[key]));
   });
+}
 
-  document.getElementById("open-dashboard").addEventListener("click", function (e) {
-    e.preventDefault();
-    chrome.tabs.create({ url: chrome.runtime.getURL("report.html") });
+function setLocal(obj) {
+  return new Promise((resolve) => chrome.storage.local.set(obj, resolve));
+}
+
+function getActiveTab() {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      resolve(tabs && tabs[0]);
+    });
   });
-});
+}
 
-function render(data) {
-  var verdictEl = document.getElementById("verdict");
-  var breakdownEl = document.getElementById("breakdown");
-  var emptyEl = document.getElementById("empty");
+// ---------------------------------------------------------------------------
+// Stats
+// ---------------------------------------------------------------------------
 
-  if (!data || !data.items || data.items.length === 0) {
-    verdictEl.appendChild(buildVerdict(data ? data.domain : "Unknown", 0));
-    emptyEl.classList.remove("hidden");
+function renderStats(stats) {
+  const r = (stats && stats.rewrites) || 0;
+  const d = (stats && stats.demotions) || 0;
+  document.getElementById("stat-rewrites").textContent = r.toLocaleString();
+  document.getElementById("stat-demotions").textContent = d.toLocaleString();
+  const foot = document.getElementById("stats-foot");
+  if (stats && stats.lastSweepAt) {
+    foot.textContent = "last sweep " + relativeTime(stats.lastSweepAt);
+  } else {
+    foot.textContent = "never swept";
+  }
+}
+
+function relativeTime(ms) {
+  const diff = Math.max(0, Date.now() - ms);
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return Math.floor(diff / 60_000) + "m ago";
+  if (diff < 86_400_000) return Math.floor(diff / 3_600_000) + "h ago";
+  return Math.floor(diff / 86_400_000) + "d ago";
+}
+
+// ---------------------------------------------------------------------------
+// Site classification + trust controls
+// ---------------------------------------------------------------------------
+
+function etld1FromHost(host) {
+  // Cheap fallback — the SW has the full PSL via scoper.js. Popup ships
+  // without psl.js to stay light. For most cases "last 2 labels" matches
+  // the PSL answer; for .co.uk-style suffixes it under-counts. We label
+  // those visibly in the UI ("unparseable") rather than guess wrong.
+  if (!host) return null;
+  const cleaned = host.startsWith(".") ? host.slice(1) : host;
+  const labels = cleaned.toLowerCase().split(".").filter(Boolean);
+  if (labels.length < 2) return null;
+  return labels.slice(-2).join(".");
+}
+
+function renderSite(tab, trust) {
+  const hostEl = document.getElementById("site-host");
+  const classEl = document.getElementById("site-class");
+  const buttons = document.querySelectorAll(".trust-btn");
+
+  let host = null;
+  try { host = tab && tab.url ? new URL(tab.url).hostname : null; } catch (_) {}
+  const etld1 = etld1FromHost(host);
+
+  if (!etld1) {
+    hostEl.textContent = host || "—";
+    classEl.textContent = "not a regular site";
+    classEl.className = "site-class unparseable";
+    buttons.forEach((b) => (b.disabled = true));
     return;
   }
 
-  verdictEl.appendChild(buildVerdict(data.domain, data.totals.total));
+  hostEl.textContent = etld1;
+  const currentTrust = trust[etld1];
+  const currentCap = currentTrust ? currentTrust.capDays : 0;
 
-  if (data.totals.total > 0) {
-    breakdownEl.classList.remove("hidden");
-    buildBreakdown(breakdownEl, data.items);
+  if (currentCap === 30) {
+    classEl.textContent = "trusted · 30 day cap";
+    classEl.className = "site-class trusted-30";
+  } else if (currentCap === 90) {
+    classEl.textContent = "trusted · 90 day cap";
+    classEl.className = "site-class trusted-90";
   } else {
-    emptyEl.classList.remove("hidden");
+    classEl.textContent = "default · 7 day cap";
+    classEl.className = "site-class untrusted";
   }
+
+  buttons.forEach((b) => {
+    const cap = parseInt(b.dataset.cap, 10);
+    b.classList.toggle("active", cap === currentCap);
+    b.disabled = cap === currentCap;
+    b.onclick = () => handleTrustClick(etld1, cap);
+  });
 }
 
-function buildVerdict(domain, total) {
-  var level = "clean";
-  var message = "No hidden tracking found.";
-  if (total > 0 && total <= 5) {
-    level = "warn";
-    message = total + " hidden tracking element" + (total !== 1 ? "s" : "") + " found.";
-  } else if (total > 5) {
-    level = "bad";
-    message = total + " hidden tracking elements found.";
+async function handleTrustClick(etld1, cap) {
+  const trust = (await getLocal("scoperTrust")) || {};
+  if (cap === 0) {
+    delete trust[etld1];
+  } else {
+    trust[etld1] = { capDays: cap, addedAt: Date.now() };
   }
-
-  var wrap = el("div", "verdict verdict-" + level);
-
-  var domainEl = el("div", "verdict-domain");
-  domainEl.textContent = domain;
-  wrap.appendChild(domainEl);
-
-  var countEl = el("div", "verdict-count");
-  var num = el("span", "verdict-flagged");
-  num.textContent = total;
-  countEl.appendChild(num);
-  wrap.appendChild(countEl);
-
-  var msg = el("div", "verdict-message");
-  msg.textContent = message;
-  wrap.appendChild(msg);
-
-  return wrap;
+  await setLocal({ scoperTrust: trust });
+  // Re-render with the new state.
+  const tab = await getActiveTab();
+  renderSite(tab, trust);
 }
 
-function buildBreakdown(container, items) {
-  var purposes = {};
-  for (var i = 0; i < items.length; i++) {
-    var purpose = items[i].purpose || "Unknown";
-    var company = items[i].company || items[i].domain;
-    if (!purposes[purpose]) purposes[purpose] = {};
-    purposes[purpose][company] = (purposes[purpose][company] || 0) + 1;
-  }
+// ---------------------------------------------------------------------------
+// Sweep button
+// ---------------------------------------------------------------------------
 
-  var sortedPurposes = [];
-  for (var p = 0; p < PURPOSE_ORDER.length; p++) {
-    if (purposes[PURPOSE_ORDER[p]]) {
-      sortedPurposes.push(PURPOSE_ORDER[p]);
-    }
-  }
-
-  var otherCompanies = {};
-  var purposeKeys = Object.keys(purposes);
-  for (var k = 0; k < purposeKeys.length; k++) {
-    if (PURPOSE_ORDER.indexOf(purposeKeys[k]) === -1) {
-      var companies = purposes[purposeKeys[k]];
-      var companyNames = Object.keys(companies);
-      for (var c = 0; c < companyNames.length; c++) {
-        otherCompanies[companyNames[c]] = (otherCompanies[companyNames[c]] || 0) + companies[companyNames[c]];
-      }
-    }
-  }
-  var hasOther = Object.keys(otherCompanies).length > 0;
-
-  var label = el("div", "section-label");
-  label.textContent = "Who's tracking";
-  container.appendChild(label);
-
-  var bd = el("div", "breakdown-list");
-
-  for (var s = 0; s < sortedPurposes.length; s++) {
-    var purpose = sortedPurposes[s];
-    var companyCounts = purposes[purpose];
-    var total = 0;
-    var companyList = Object.keys(companyCounts).sort(function (a, b) {
-      return companyCounts[b] - companyCounts[a];
+function wireSweepButton() {
+  const btn = document.getElementById("sweep-now");
+  btn.onclick = () => {
+    btn.disabled = true;
+    btn.textContent = "Sweeping…";
+    chrome.runtime.sendMessage({ type: "sweep:now" }, async (resp) => {
+      // Even if no listener responded, re-render after a brief delay so
+      // the user sees the updated stats from the autonomous sweep path.
+      await new Promise((r) => setTimeout(r, 250));
+      const stats = await getLocal("scoperStats");
+      renderStats(stats);
+      btn.disabled = false;
+      btn.textContent = resp && resp.gated ? "Sweep again" : "Sweep now";
     });
-    for (var j = 0; j < companyList.length; j++) {
-      total += companyCounts[companyList[j]];
-    }
-
-    var row = el("div", "breakdown-row");
-    var catEl = el("span", "breakdown-category");
-    catEl.textContent = purpose;
-    var countEl = el("span", "breakdown-count");
-    countEl.textContent = total;
-    row.appendChild(catEl);
-    row.appendChild(countEl);
-    bd.appendChild(row);
-
-    var list = el("div", "domain-list");
-    for (var d = 0; d < companyList.length; d++) {
-      var companyRow = el("div", "domain-row");
-      var nameEl = el("span", "domain-name");
-      nameEl.textContent = companyList[d];
-      var cntEl = el("span", "domain-count");
-      cntEl.textContent = companyCounts[companyList[d]];
-      companyRow.appendChild(nameEl);
-      companyRow.appendChild(cntEl);
-      list.appendChild(companyRow);
-    }
-    bd.appendChild(list);
-  }
-
-  if (hasOther) {
-    var otherTotal = 0;
-    var otherList = Object.keys(otherCompanies).sort(function (a, b) {
-      return otherCompanies[b] - otherCompanies[a];
-    });
-    for (var o = 0; o < otherList.length; o++) {
-      otherTotal += otherCompanies[otherList[o]];
-    }
-
-    var otherRow = el("div", "breakdown-row breakdown-other");
-    var otherCat = el("span", "breakdown-category");
-    otherCat.textContent = "Other";
-    var otherCount = el("span", "breakdown-count");
-    otherCount.textContent = otherTotal;
-    otherRow.appendChild(otherCat);
-    otherRow.appendChild(otherCount);
-    bd.appendChild(otherRow);
-  }
-
-  container.appendChild(bd);
-}
-
-function el(tag, className) {
-  var node = document.createElement(tag);
-  if (className) node.className = className;
-  return node;
+  };
 }

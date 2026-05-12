@@ -32,6 +32,12 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     });
     return true;
   }
+
+  // Popup "Sweep now" — bypasses the dedup gate via the 'manual' trigger.
+  if (message.type === "sweep:now") {
+    self.initialSweep("manual").then(function (stats) { sendResponse(stats || {}); });
+    return true;
+  }
 });
 
 function updateBadge(tabId, count) {

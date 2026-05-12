@@ -82,8 +82,15 @@ async function sweepETLDSet() {
 // ---------------------------------------------------------------------------
 
 async function sweepLoadTrustList() {
-  // Step 4 (popup) will populate this from chrome.storage.local.scoperTrust.
-  return new Map();
+  const { scoperTrust } = await chrome.storage.local.get("scoperTrust");
+  const map = new Map();
+  if (!scoperTrust || typeof scoperTrust !== "object") return map;
+  for (const [etld1, entry] of Object.entries(scoperTrust)) {
+    if (entry && (entry.capDays === 30 || entry.capDays === 90)) {
+      map.set(etld1, { capDays: entry.capDays });
+    }
+  }
+  return map;
 }
 
 function setCookieAsync(details) {

@@ -360,6 +360,27 @@ const fixtures = [
     pass("scoperStats {rewrites:" + scoperStats.rewrites + ", demotions:" + scoperStats.demotions + ", lastSweepAt:recent}");
   }
 
+  // -------------------------------------------------------------------------
+  // Phase D: trust list — popup-set scoperTrust shifts the cap to 30/90d
+  // -------------------------------------------------------------------------
+  await chromeStub.storage.local.set({ scoperTrust: { "cnn.com": { capDays: 30, addedAt: Date.now() } } });
+  const trustCookie = {
+    name: "fresh_pref", value: "x", domain: ".cnn.com", path: "/",
+    secure: true, httpOnly: false, sameSite: "lax",
+    session: false, expirationDate: yearsOut(2), storeId: "0",
+  };
+  cookieStore.set(cookieKey(trustCookie), { ...trustCookie });
+  await ctx.initialSweep("manual");
+  const trusted = cookieStore.get(cookieKey(trustCookie))
+    || [...cookieStore.values()].find((c) => c.name === "fresh_pref");
+  const wantTrustedExpiry = daysOut(30);
+  const trustDelta = Math.abs((trusted.expirationDate || 0) - wantTrustedExpiry);
+  if (trustDelta > 60) {
+    fail("trust list 30d cap on cnn.com", "want expirationDate~=" + wantTrustedExpiry + " got " + trusted.expirationDate + " delta=" + trustDelta + "s");
+  } else {
+    pass("trust list 30d cap on cnn.com (fresh cookie capped to 30d, not 7d)");
+  }
+
   console.log("\n" + passed + " passed, " + failed + " failed (" + originalCount + " cookies seeded, " + cookieStore.size + " in store post-sweep)");
   process.exit(failed === 0 ? 0 : 1);
 })();

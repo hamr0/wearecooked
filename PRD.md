@@ -277,24 +277,41 @@ All future work on v5 follows `.claude/memory/AGENT_RULES.md` (see "Process disc
 - ✅ `chrome-extension/fingerprint-surfaces.js` — JShelter wrappers-lvl_0_1 snapshot (149 surfaces, 12 categories). GPL-3.0 source, factual lift, NOTICE attribution.
 - ⏳ Wiring into wearehere's runtime classification (separate change).
 
-### Phase 1 (cookie scoper) — pick up sequence
+### Phase 1 (cookie scoper) — shipped on `phase1-cookie-scoper` (21 commits, unmerged)
 
-1. **Create feature branch** — `git checkout -b phase1-cookie-scoper`. All POC and module work lives on this branch until graduation.
-2. **POC** (~15 min, branch only, never merged) — minimal `chrome.cookies.onChanged` → `chrome.cookies.set` round-trip on a single test domain. Hardcoded values fine. Validate:
-   - Happy path: third-party cookie set with 1-year expiry → rewritten as session cookie within ~50ms.
-   - Edge 1: our own rewrite doesn't infinite-loop (`cause === 'overwrite'` filter).
-   - Edge 2: `__Host-` prefixed cookie either rewrites with all attributes preserved, or is skipped cleanly (no Chrome rejection logs).
-   POC validates the API surface works as imagined; if it does, stop and design properly.
-3. **Vendor `cookie-database.js`** from wearehere into wearecooked at the same snapshot SHA. Pin in NOTICE.
-4. **Bundle PSL** — vanilla-language solution preferred. Generate a static `psl.js` (Set of public suffixes) from `publicsuffix.org/list/public_suffix_list.dat`. No npm dep; one-time build script in `tools/`.
-5. **Build the scoper module incrementally**, smallest pieces first, each working in isolation before the next:
-   - `scoper.js` (pure policy function, no Chrome APIs) — testable in console.
-   - `chrome.cookies.onChanged` listener with dedupe map.
-   - Trust list in `chrome.storage.local`, explicit-add only.
-   - Popup toggle (responsive — already small, but verify on narrow viewport).
-   - Counter ("N cookies scoped on this site") on the existing cookies card.
-6. **Decision points to revisit at design time** — the 10 policy defaults in the Phase 1 table above. Each is a default, not a constraint.
-7. **Ship as v5.0.0-alpha**, default OFF, dogfood for ~1 week before defaulting ON.
+All scope below is built and validated. Branch is held back from `main` pending real-world dogfood. Live state:
+
+- ✅ POC validated round-trip on example.com (`31447ff`).
+- ✅ Vendored `cookie-database.js` (Open Cookie Database, byte-identical to wearehere snapshot `2d81a5a`).
+- ✅ Bundled PSL via `tools/build-psl.js` → `chrome-extension/psl.js` (9916+283+8 rules, MPL-2.0 per-file).
+- ✅ Pure policy module (`scoper.js`) with 36 isolation tests in `tools/test-scoper.js`.
+- ✅ Cron architecture — `chrome.alarms` + `seenSites` Set in `chrome.storage.local`. Live `onChanged` listener was built, dogfooded, found racy under SW-wake, and **deleted in favor of the cron** (`61b25d3`). The listener is gone; the sweep does all the work.
+- ✅ OCD-aware tracker demotion — 1p Marketing/Analytics cookies demote to session even on trusted sites (`d5235d3`).
+- ✅ Cold-start gate — auto-sweeps skip until `seenSites.size >= 10`; manual sweeps (popup `[Sweep now]`) bypass.
+- ✅ Stats counter — lifetime + per-site accumulators in `scoperStats` (`1b76532`).
+- ✅ Sweep history ring buffer — last 50 sweeps in `scoperHistory`.
+- ✅ Configurable sweep period — `scoperSettings.alarmPeriodMin` ∈ {15, 60, 240, 720}, default 60.
+- ✅ **Popup** (`popup.html`) — single Cookie scoper card per the locked UI section above.
+- ✅ **Dashboard** (`dashboard.html`) — four blocks: hero, trusted sites, settings, recent activity.
+- ✅ Node test harness — `tools/test-sweep.js`, 21 deterministic assertions against the actual sweep code with stubbed `chrome.*` APIs.
+
+**Architecture differences from the original pick-up sequence** (worth knowing if reading old context):
+- We do **not** use `chrome.cookies.onChanged` in production. Cron-only design.
+- `inflight` Map and `cause === 'explicit'` filter from the original plan are obsolete — there's no listener to dedupe.
+- Loop avoidance is handled by `decideAction`'s "already-within-cap" branch — works for both sweep passes (idempotency verified in harness).
+- Trust list shape is `{[etld1]: {capDays, addedAt}}` — `capDays` is 30 or 90 (no expiry on trust entries).
+
+**What's intentionally left for after dogfood** (don't pre-build):
+- Cross-extension integration with wearehere (`#panel-cookies` iframe of `dashboard.html`).
+- Trust list export/import.
+- Telemetry — still none, still by design.
+
+**Pick-up sequence for the next agent if Phase 1 needs touch-up:**
+
+1. Read `COOKIE-SCOPER-README.md` — plain-language tour of how it works.
+2. Read the PRD "Phase 1 UI surfaces (locked 2026-05-13)" section — surface contract.
+3. Run `node tools/test-sweep.js`. Expect 21/21 pass. Any failure means a regression in the sweep code path.
+4. Don't re-add the live listener. Don't re-introduce a tunable default-cap slider. Don't make trust decay.
 
 ### Phase 2 (fingerprint farbler) — gates and pick-up sequence
 

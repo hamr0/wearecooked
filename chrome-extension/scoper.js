@@ -7,9 +7,16 @@
 //   self.PSL_NORMAL, self.PSL_WILDCARD, self.PSL_EXCEPTION
 //
 // Exports (via self.scoperPolicy):
-//   etld1Of(host)           -> string | null
-//   isThirdParty(ch, th)    -> boolean
-//   decideAction({...})     -> { action, capDays, reason, etld1 }
+//   etld1Of(host)                            -> string | null
+//   isThirdParty(cookieHost, topHost)        -> boolean
+//   decideAction({cookie, topHost?, thirdParty?, trustList})
+//                                            -> { action, capDays, reason, etld1 }
+//
+// decideAction can be called two ways:
+//   - With topHost: policy computes thirdParty internally (used by tests).
+//   - With thirdParty (boolean): caller pre-computed it (used by the
+//     listener, which does an "any open tab" Set lookup for Option B).
+// thirdParty takes precedence if both are provided.
 //
 // v5 UX defaults (locked 2026-05-12):
 //   first-party untrusted        -> 7 days
@@ -71,7 +78,7 @@ function isThirdParty(cookieHost, topHost) {
   return cookieETLD !== topETLD;
 }
 
-function decideAction({ cookie, topHost, trustList }) {
+function decideAction({ cookie, topHost, thirdParty, trustList }) {
   const cookieETLD = etld1Of(cookie.domain);
   if (!cookieETLD) {
     return { action: "skip", capDays: null, reason: "unparseable-domain", etld1: null };
@@ -80,10 +87,12 @@ function decideAction({ cookie, topHost, trustList }) {
     return { action: "skip", capDays: null, reason: "already-session", etld1: cookieETLD };
   }
 
-  const thirdParty = topHost ? isThirdParty(cookie.domain, topHost) : false;
+  const tp = thirdParty !== undefined
+    ? !!thirdParty
+    : (topHost ? isThirdParty(cookie.domain, topHost) : false);
   let capDays;
   let reason;
-  if (thirdParty) {
+  if (tp) {
     capDays = null;
     reason = "third-party-to-session";
   } else {

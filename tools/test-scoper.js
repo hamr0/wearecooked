@@ -139,6 +139,28 @@ eq(
 );
 
 eq(
+  "thirdParty override true -> session (even with matching topHost)",
+  decideAction({
+    cookie: { domain: "cnn.com", session: false, expirationDate: dayFromNow(365) },
+    topHost: "cnn.com",
+    thirdParty: true,
+    trustList: new Map(),
+  }),
+  { action: "rewrite", capDays: null, reason: "third-party-to-session", etld1: "cnn.com" },
+);
+
+eq(
+  "thirdParty override false -> 7d (even with mismatching topHost)",
+  decideAction({
+    cookie: { domain: "cnn.com", session: false, expirationDate: dayFromNow(365) },
+    topHost: "unrelated.example",
+    thirdParty: false,
+    trustList: new Map(),
+  }),
+  { action: "rewrite", capDays: 7, reason: "first-party-7d", etld1: "cnn.com" },
+);
+
+eq(
   "unparseable domain -> skip",
   decideAction({
     cookie: { domain: "localhost", session: false, expirationDate: dayFromNow(365) },

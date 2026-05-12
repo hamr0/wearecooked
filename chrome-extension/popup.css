@@ -90,6 +90,21 @@ h1 {
 .site-class.untrusted  { color: #888; }
 .site-class.unparseable { color: #e0a458; }
 
+.site-cookies {
+  font-size: 11px;
+  color: #aaa;
+  background: #22223a;
+  border-radius: 4px;
+  padding: 8px 10px;
+  margin: 6px 0 10px;
+  line-height: 1.5;
+}
+.site-cookies .row { display: flex; justify-content: space-between; }
+.site-cookies .label { color: #777; }
+.site-cookies .val { color: #ddd; font-weight: 600; }
+.site-cookies .val.warn { color: #e0a458; }
+.site-cookies .val.ok { color: #5ed1a0; }
+
 /* ---- trust buttons ---- */
 .trust-row {
   display: flex;

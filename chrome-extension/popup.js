@@ -18,9 +18,41 @@ async function init() {
     getActiveTab(),
   ]);
   renderStats(stats);
-  renderSite(activeTab, trust || {});
+  const etld1 = renderSite(activeTab, trust || {});
   renderAnchor(seen);
-  wireSweepButton();
+  wireSweepButton(etld1);
+  if (etld1) renderSiteCookies(etld1);
+}
+
+function getCookiesForDomain(domain) {
+  return new Promise((resolve) => {
+    chrome.cookies.getAll({ domain }, (cs) => resolve(cs || []));
+  });
+}
+
+async function renderSiteCookies(etld1) {
+  const el = document.getElementById("site-cookies");
+  const cookies = await getCookiesForDomain(etld1);
+  if (cookies.length === 0) {
+    el.textContent = "no cookies stored for this domain";
+    return;
+  }
+  const now = Date.now() / 1000;
+  let sessionCount = 0;
+  let maxExpirySec = 0;
+  for (const c of cookies) {
+    if (c.session || !c.expirationDate) { sessionCount++; continue; }
+    const remaining = c.expirationDate - now;
+    if (remaining > maxExpirySec) maxExpirySec = remaining;
+  }
+  const maxDays = Math.round(maxExpirySec / 86400);
+  const persistent = cookies.length - sessionCount;
+  const maxClass = maxDays > 90 ? "warn" : (maxDays <= 7 ? "ok" : "");
+  el.innerHTML =
+    '<div class="row"><span class="label">cookies stored</span><span class="val">' + cookies.length + '</span></div>' +
+    '<div class="row"><span class="label">session</span><span class="val">' + sessionCount + '</span></div>' +
+    '<div class="row"><span class="label">persistent</span><span class="val">' + persistent + '</span></div>' +
+    '<div class="row"><span class="label">longest expiry</span><span class="val ' + maxClass + '">' + (persistent === 0 ? "—" : maxDays + "d") + '</span></div>';
 }
 
 function renderAnchor(seen) {
@@ -102,7 +134,8 @@ function renderSite(tab, trust) {
     classEl.textContent = "not a regular site";
     classEl.className = "site-class unparseable";
     buttons.forEach((b) => (b.disabled = true));
-    return;
+    document.getElementById("site-cookies").textContent = "—";
+    return null;
   }
 
   hostEl.textContent = etld1;
@@ -126,6 +159,8 @@ function renderSite(tab, trust) {
     b.disabled = cap === currentCap;
     b.onclick = () => handleTrustClick(etld1, cap);
   });
+
+  return etld1;
 }
 
 async function handleTrustClick(etld1, cap) {
@@ -136,16 +171,18 @@ async function handleTrustClick(etld1, cap) {
     trust[etld1] = { capDays: cap, addedAt: Date.now() };
   }
   await setLocal({ scoperTrust: trust });
-  // Re-render with the new state.
+  // Re-render with the new state. Cookies don't change until the next
+  // sweep — site-cookies panel just reflects current store either way.
   const tab = await getActiveTab();
   renderSite(tab, trust);
+  renderSiteCookies(etld1);
 }
 
 // ---------------------------------------------------------------------------
 // Sweep button
 // ---------------------------------------------------------------------------
 
-function wireSweepButton() {
+function wireSweepButton(etld1) {
   const btn = document.getElementById("sweep-now");
   const status = document.getElementById("sweep-status");
   btn.onclick = () => {
@@ -158,6 +195,7 @@ function wireSweepButton() {
       const [stats, seen] = await Promise.all([getLocal("scoperStats"), getLocal("seenSites")]);
       renderStats(stats);
       renderAnchor(seen);
+      if (etld1) renderSiteCookies(etld1);
       btn.disabled = false;
       btn.textContent = "Sweep now";
       if (!resp) {

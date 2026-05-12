@@ -19,7 +19,10 @@
 // where seenSites is empty from mis-classifying every cookie as 3p.
 
 const ALARM_NAME = "scoper-sweep";
-const ALARM_PERIOD_MIN = 240;            // 4h cadence
+const ALARM_PERIOD_MIN = 60;             // hourly cadence (was 240/4h; the cap is
+                                         // rolling for actively-visited sites, so
+                                         // shorter periods narrow the window during
+                                         // which a re-set cookie sits at full expiry)
 const ALARM_FIRST_DELAY_MIN = 1;         // first fire 1min after install/startup
 const MIN_SEEN_SITES_FOR_SWEEP = 10;     // gate to avoid over-demotion on cold start
 
@@ -239,5 +242,24 @@ chrome.runtime.onStartup.addListener(() => {
   // before reading the open-tab set into the 1p anchor.
   setTimeout(() => initialSweep("onStartup"), 2000);
 });
+
+// SW startup bootstrap: chrome.tabs.onUpdated only fires on *new* page
+// loads, so the listener misses every tab that was already open when
+// the SW (re)started. Seed seenSites from those tabs on every load.
+// Cheap (one tabs.query) and removes the "0 sites known after reload"
+// surprise. Without this, the cron alarm would gate until 10 fresh
+// navigations happened post-reload.
+async function bootstrapSeenSitesFromOpenTabs() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const t of tabs) {
+      if (!t.url) continue;
+      let host;
+      try { host = new URL(t.url).hostname; } catch (_) { continue; }
+      if (host) await seenSitesAdd(host);
+    }
+  } catch (_) { /* tabs unavailable -> tolerate */ }
+}
+bootstrapSeenSitesFromOpenTabs();
 
 console.log("[wearecooked v5 sweep] cron + seen-sites handlers registered (alarm=" + ALARM_PERIOD_MIN + "min, gate=" + MIN_SEEN_SITES_FOR_SWEEP + " sites). Manual: self.initialSweep('manual')");

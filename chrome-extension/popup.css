@@ -8,165 +8,105 @@ body {
   font-size: 13px;
 }
 
-#app { padding: 14px 16px 16px; }
-
-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.card {
+  padding: 14px 16px 12px;
 }
 
-.header-logo { width: 20px; height: 20px; }
-
-h1 {
-  font-size: 14px;
+.card-title {
+  font-size: 11px;
   font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
   color: #ff6b6b;
-  letter-spacing: 0.5px;
-}
-
-.tagline {
-  font-size: 11px;
-  color: #888;
-  margin: -2px 0 14px 0;
-}
-
-/* ---- stats ---- */
-.stats {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-.stat {
-  flex: 1;
-  background: #22223a;
-  border-radius: 6px;
-  padding: 10px 12px;
-}
-.stat-num {
-  font-size: 22px;
-  font-weight: 800;
-  color: #ff6b6b;
-  line-height: 1.1;
-}
-.stat-label {
-  font-size: 11px;
-  color: #888;
-  margin-top: 2px;
-}
-.stats-foot {
-  font-size: 10px;
-  color: #555;
-  margin: 6px 2px 14px;
-  text-align: right;
-}
-
-/* ---- site ---- */
-.site {
-  border-top: 1px solid #2a2a4a;
-  padding-top: 12px;
   margin-bottom: 12px;
 }
-.site-label {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: #666;
-  margin-bottom: 4px;
-}
-.site-host {
-  font-size: 16px;
+
+.site-line {
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
+  margin-bottom: 4px;
 }
-.site-class {
-  font-size: 11px;
+.site-line .cap {
   color: #888;
-  margin-top: 2px;
-  margin-bottom: 10px;
+  font-weight: 500;
+  margin-left: 6px;
 }
-.site-class.trusted-30 { color: #5ed1a0; }
-.site-class.trusted-90 { color: #5ed1a0; }
-.site-class.untrusted  { color: #888; }
-.site-class.unparseable { color: #e0a458; }
+.site-line .cap.trusted { color: #5ed1a0; }
 
-.site-cookies {
-  font-size: 11px;
+.impact {
+  font-size: 12px;
   color: #aaa;
-  background: #22223a;
-  border-radius: 4px;
-  padding: 8px 10px;
-  margin: 6px 0 10px;
-  line-height: 1.5;
+  margin-bottom: 12px;
+  line-height: 1.45;
+  min-height: 18px;
 }
-.site-cookies .row { display: flex; justify-content: space-between; }
-.site-cookies .label { color: #777; }
-.site-cookies .val { color: #ddd; font-weight: 600; }
-.site-cookies .val.warn { color: #e0a458; }
-.site-cookies .val.ok { color: #5ed1a0; }
+.impact.warn { color: #e0a458; }
+.impact.ok   { color: #5ed1a0; }
 
-/* ---- trust buttons ---- */
-.trust-row {
+.actions {
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  margin-bottom: 4px;
 }
-.trust-btn {
+.actions button {
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 7px 6px;
+  padding: 8px 6px;
+  border-radius: 4px;
+  border: 1px solid #3a3a5a;
   background: #2a2a4a;
   color: #ddd;
-  border: 1px solid #3a3a5a;
-  border-radius: 4px;
   cursor: pointer;
   font-family: inherit;
 }
-.trust-btn:hover { background: #34345a; }
-.trust-btn.active {
+.actions button:hover { background: #34345a; }
+.actions button:disabled { opacity: 0.5; cursor: wait; }
+
+#sweep-now {
+  background: #ff6b6b;
+  color: #1a1a2e;
+  border-color: #ff6b6b;
+}
+#sweep-now:hover { background: #ff8585; }
+
+#trust-toggle.trusted {
   background: #2a4a3a;
   border-color: #5ed1a0;
   color: #5ed1a0;
 }
-.trust-btn.trust-remove { color: #aaa; }
-.trust-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
 
-/* ---- actions ---- */
-.actions {
+.status {
+  font-size: 10px;
+  color: #888;
+  min-height: 12px;
+  margin: 6px 2px 8px;
+  text-align: center;
+}
+.status.ok    { color: #5ed1a0; }
+.status.gated { color: #e0a458; }
+.status.warn  { color: #e0a458; }
+
+.footer {
   border-top: 1px solid #2a2a4a;
-  padding-top: 12px;
-}
-#sweep-now {
-  width: 100%;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 9px;
-  background: #ff6b6b;
-  color: #1a1a2e;
-  border: 0;
-  border-radius: 4px;
-  cursor: pointer;
-  font-family: inherit;
-}
-#sweep-now:hover { background: #ff8585; }
-#sweep-now:disabled { opacity: 0.5; cursor: wait; }
-
-.sweep-status {
+  padding-top: 10px;
   font-size: 11px;
   color: #888;
-  margin-top: 8px;
-  min-height: 14px;
-  text-align: center;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
-.sweep-status.ok { color: #5ed1a0; }
-.sweep-status.gated { color: #e0a458; }
+.footer-sep { color: #444; }
 
-.anchor {
-  font-size: 10px;
-  color: #555;
-  margin-top: 10px;
+.dashboard-link {
+  display: block;
+  margin-top: 8px;
   text-align: center;
+  font-size: 11px;
+  color: #ff6b6b;
+  text-decoration: none;
+  font-weight: 600;
 }
+.dashboard-link:hover { text-decoration: underline; }

@@ -1,99 +1,52 @@
 "use strict";
 
-// popup.js — wearecooked v5 scoper popup.
-//
-// Reads chrome.storage.local directly (same extension, full access) for
-// stats + trust list, and computes the active tab's eTLD+1 via the
-// scoperPolicy module if available. The "Sweep now" button posts a
-// "sweep:now" message to the SW so the manual run goes through the
-// real sweep code path.
+// popup.js — wearecooked v5 scoper popup (locked card design).
+// One card: site line, impact line (state machine), [Sweep now]+[Trust 30d],
+// lifetime footer, dashboard link.
 
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
-  const [stats, trust, seen, activeTab] = await Promise.all([
+  const [stats, trust, activeTab] = await Promise.all([
     getLocal("scoperStats"),
     getLocal("scoperTrust"),
-    getLocal("seenSites"),
     getActiveTab(),
   ]);
-  renderStats(stats);
-  const etld1 = renderSite(activeTab, trust || {});
-  renderAnchor(seen);
-  wireSweepButton(etld1);
-  if (etld1) renderSiteCookies(etld1);
-}
-
-function getCookiesForDomain(domain) {
-  return new Promise((resolve) => {
-    chrome.cookies.getAll({ domain }, (cs) => resolve(cs || []));
+  const etld1 = await renderCard(activeTab, trust || {}, stats || null);
+  renderFooter(stats);
+  wireButtons(etld1);
+  document.getElementById("open-dashboard").addEventListener("click", (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html") });
   });
 }
 
-async function renderSiteCookies(etld1) {
-  const el = document.getElementById("site-cookies");
-  const cookies = await getCookiesForDomain(etld1);
-  if (cookies.length === 0) {
-    el.textContent = "no cookies stored for this domain";
-    return;
-  }
-  const now = Date.now() / 1000;
-  let sessionCount = 0;
-  let maxExpirySec = 0;
-  for (const c of cookies) {
-    if (c.session || !c.expirationDate) { sessionCount++; continue; }
-    const remaining = c.expirationDate - now;
-    if (remaining > maxExpirySec) maxExpirySec = remaining;
-  }
-  const maxDays = Math.round(maxExpirySec / 86400);
-  const persistent = cookies.length - sessionCount;
-  const maxClass = maxDays > 90 ? "warn" : (maxDays <= 7 ? "ok" : "");
-  el.innerHTML =
-    '<div class="row"><span class="label">cookies stored</span><span class="val">' + cookies.length + '</span></div>' +
-    '<div class="row"><span class="label">session</span><span class="val">' + sessionCount + '</span></div>' +
-    '<div class="row"><span class="label">persistent</span><span class="val">' + persistent + '</span></div>' +
-    '<div class="row"><span class="label">longest expiry</span><span class="val ' + maxClass + '">' + (persistent === 0 ? "—" : maxDays + "d") + '</span></div>';
-}
-
-function renderAnchor(seen) {
-  const count = Array.isArray(seen) ? seen.length : 0;
-  document.getElementById("anchor").textContent =
-    "1p anchor: " + count + " sites known" + (count < 10 ? " (cron gate opens at 10)" : "");
-}
+// ---------------------------------------------------------------------------
+// Storage + helpers
+// ---------------------------------------------------------------------------
 
 function getLocal(key) {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(key, (obj) => resolve(obj && obj[key]));
-  });
+  return new Promise((r) => chrome.storage.local.get(key, (o) => r(o && o[key])));
 }
-
 function setLocal(obj) {
-  return new Promise((resolve) => chrome.storage.local.set(obj, resolve));
+  return new Promise((r) => chrome.storage.local.set(obj, r));
 }
-
 function getActiveTab() {
-  return new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      resolve(tabs && tabs[0]);
-    });
-  });
+  return new Promise((r) => chrome.tabs.query({ active: true, currentWindow: true }, (t) => r(t && t[0])));
+}
+function getCookiesForDomain(domain) {
+  return new Promise((r) => chrome.cookies.getAll({ domain }, (cs) => r(cs || [])));
 }
 
-// ---------------------------------------------------------------------------
-// Stats
-// ---------------------------------------------------------------------------
-
-function renderStats(stats) {
-  const r = (stats && stats.rewrites) || 0;
-  const d = (stats && stats.demotions) || 0;
-  document.getElementById("stat-rewrites").textContent = r.toLocaleString();
-  document.getElementById("stat-demotions").textContent = d.toLocaleString();
-  const foot = document.getElementById("stats-foot");
-  if (stats && stats.lastSweepAt) {
-    foot.textContent = "last sweep " + relativeTime(stats.lastSweepAt);
-  } else {
-    foot.textContent = "never swept";
-  }
+// Last-2-labels fallback (popup ships without psl.js — saves ~150KB).
+// Multi-part PSL suffixes (.co.uk) fall through to "not a regular site".
+// SW's authoritative PSL classification still applies regardless.
+function etld1FromHost(host) {
+  if (!host) return null;
+  const cleaned = host.startsWith(".") ? host.slice(1) : host;
+  const labels = cleaned.toLowerCase().split(".").filter(Boolean);
+  if (labels.length < 2) return null;
+  return labels.slice(-2).join(".");
 }
 
 function relativeTime(ms) {
@@ -105,114 +58,163 @@ function relativeTime(ms) {
 }
 
 // ---------------------------------------------------------------------------
-// Site classification + trust controls
+// Card rendering
 // ---------------------------------------------------------------------------
 
-function etld1FromHost(host) {
-  // Cheap fallback — the SW has the full PSL via scoper.js. Popup ships
-  // without psl.js to stay light. For most cases "last 2 labels" matches
-  // the PSL answer; for .co.uk-style suffixes it under-counts. We label
-  // those visibly in the UI ("unparseable") rather than guess wrong.
-  if (!host) return null;
-  const cleaned = host.startsWith(".") ? host.slice(1) : host;
-  const labels = cleaned.toLowerCase().split(".").filter(Boolean);
-  if (labels.length < 2) return null;
-  return labels.slice(-2).join(".");
-}
-
-function renderSite(tab, trust) {
-  const hostEl = document.getElementById("site-host");
-  const classEl = document.getElementById("site-class");
-  const buttons = document.querySelectorAll(".trust-btn");
+async function renderCard(tab, trust, stats) {
+  const siteLineEl = document.getElementById("site-line");
+  const impactEl = document.getElementById("impact");
+  const trustBtn = document.getElementById("trust-toggle");
 
   let host = null;
   try { host = tab && tab.url ? new URL(tab.url).hostname : null; } catch (_) {}
   const etld1 = etld1FromHost(host);
 
   if (!etld1) {
-    hostEl.textContent = host || "—";
-    classEl.textContent = "not a regular site";
-    classEl.className = "site-class unparseable";
-    buttons.forEach((b) => (b.disabled = true));
-    document.getElementById("site-cookies").textContent = "—";
+    siteLineEl.textContent = host || "—";
+    impactEl.textContent = "not a regular site — scoper inactive here";
+    impactEl.className = "impact warn";
+    trustBtn.disabled = true;
     return null;
   }
 
-  hostEl.textContent = etld1;
-  const currentTrust = trust[etld1];
-  const currentCap = currentTrust ? currentTrust.capDays : 0;
+  const trustEntry = trust[etld1];
+  const capDays = trustEntry ? trustEntry.capDays : 7;
+  const isTrusted = !!trustEntry;
 
-  if (currentCap === 30) {
-    classEl.textContent = "trusted · 30 day cap";
-    classEl.className = "site-class trusted-30";
-  } else if (currentCap === 90) {
-    classEl.textContent = "trusted · 90 day cap";
-    classEl.className = "site-class trusted-90";
+  // Site line: "nytimes.com · 7 day cap" or "nytimes.com · trusted · 30d cap"
+  siteLineEl.innerHTML =
+    '<span class="host">' + etld1 + '</span>' +
+    '<span class="cap' + (isTrusted ? " trusted" : "") + '">· ' +
+    (isTrusted ? "trusted · " + capDays + "d cap" : capDays + " day cap") +
+    '</span>';
+
+  // Impact line is a state machine driven by:
+  //   1. per-site stats (sweep ran here? how much work?)
+  //   2. longest current cookie expiry for this domain
+  //   3. trusted vs untrusted
+  await renderImpact(etld1, capDays, isTrusted, stats);
+
+  // Trust button toggles 30d ↔ remove. 90d does NOT ship in popup.
+  if (isTrusted) {
+    trustBtn.textContent = "Remove trust";
+    trustBtn.classList.add("trusted");
+    trustBtn.disabled = false;
+    trustBtn.onclick = () => handleTrustClick(etld1, 0);
   } else {
-    classEl.textContent = "default · 7 day cap";
-    classEl.className = "site-class untrusted";
+    trustBtn.textContent = "Trust 30d";
+    trustBtn.classList.remove("trusted");
+    trustBtn.disabled = false;
+    trustBtn.onclick = () => handleTrustClick(etld1, 30);
   }
-
-  buttons.forEach((b) => {
-    const cap = parseInt(b.dataset.cap, 10);
-    b.classList.toggle("active", cap === currentCap);
-    b.disabled = cap === currentCap;
-    b.onclick = () => handleTrustClick(etld1, cap);
-  });
 
   return etld1;
 }
 
-async function handleTrustClick(etld1, cap) {
-  const trust = (await getLocal("scoperTrust")) || {};
-  if (cap === 0) {
-    delete trust[etld1];
-  } else {
-    trust[etld1] = { capDays: cap, addedAt: Date.now() };
+async function renderImpact(etld1, capDays, isTrusted, stats) {
+  const el = document.getElementById("impact");
+  const cookies = await getCookiesForDomain(etld1);
+  const nowSec = Date.now() / 1000;
+  let maxRemainingSec = 0;
+  for (const c of cookies) {
+    if (c.session || !c.expirationDate) continue;
+    const r = c.expirationDate - nowSec;
+    if (r > maxRemainingSec) maxRemainingSec = r;
   }
-  await setLocal({ scoperTrust: trust });
-  // Re-render with the new state. Cookies don't change until the next
-  // sweep — site-cookies panel just reflects current store either way.
-  const tab = await getActiveTab();
-  renderSite(tab, trust);
-  renderSiteCookies(etld1);
+  const maxDays = Math.round(maxRemainingSec / 86400);
+  const bySite = (stats && stats.bySite && stats.bySite[etld1]) || null;
+  const siteRewrites = bySite ? bySite.rewrites : 0;
+  const siteDemotions = bySite ? bySite.demotions : 0;
+
+  // Trusted path: cookies are within their (raised) cap.
+  if (isTrusted) {
+    if (siteRewrites === 0) {
+      el.textContent = "cookies passing through · 0 tightened";
+      el.className = "impact ok";
+    } else {
+      el.textContent =
+        "longest cookie " + maxDays + "d → " + capDays + "d · " +
+        siteRewrites + " tightened" +
+        (siteDemotions > 0 ? ", " + siteDemotions + " killed" : "");
+      el.className = "impact";
+    }
+    return;
+  }
+
+  // Untrusted: cap is 7d (default).
+  if (siteRewrites === 0 && maxDays <= capDays) {
+    el.textContent = "all cookies within cap ✓";
+    el.className = "impact ok";
+    return;
+  }
+  if (siteRewrites === 0 && maxDays > capDays) {
+    // Pre-first-sweep view OR cookies re-extended since last sweep here.
+    el.textContent = "longest cookie " + maxDays + "d → will trim to " + capDays + "d";
+    el.className = "impact warn";
+    return;
+  }
+  el.textContent =
+    "longest cookie " + maxDays + "d → " + capDays + "d · " +
+    siteRewrites + " tightened" +
+    (siteDemotions > 0 ? ", " + siteDemotions + " killed" : "");
+  el.className = "impact";
+}
+
+function renderFooter(stats) {
+  const r = (stats && stats.rewrites) || 0;
+  const d = (stats && stats.demotions) || 0;
+  document.getElementById("lifetime").textContent =
+    r.toLocaleString() + " tightened · " + d.toLocaleString() + " killed";
+  document.getElementById("last-sweep").textContent =
+    stats && stats.lastSweepAt ? "last sweep " + relativeTime(stats.lastSweepAt) : "never swept";
 }
 
 // ---------------------------------------------------------------------------
-// Sweep button
+// Actions
 // ---------------------------------------------------------------------------
 
-function wireSweepButton(etld1) {
+async function handleTrustClick(etld1, cap) {
+  const trust = (await getLocal("scoperTrust")) || {};
+  if (cap === 0) delete trust[etld1];
+  else trust[etld1] = { capDays: cap, addedAt: Date.now() };
+  await setLocal({ scoperTrust: trust });
+  // Re-render with new state.
+  const [tab, stats] = await Promise.all([getActiveTab(), getLocal("scoperStats")]);
+  await renderCard(tab, trust, stats);
+  renderFooter(stats);
+}
+
+function wireButtons(etld1) {
   const btn = document.getElementById("sweep-now");
-  const status = document.getElementById("sweep-status");
+  const status = document.getElementById("status");
   btn.onclick = () => {
     btn.disabled = true;
     btn.textContent = "Sweeping…";
-    status.className = "sweep-status";
+    status.className = "status";
     status.textContent = "";
     chrome.runtime.sendMessage({ type: "sweep:now" }, async (resp) => {
       await new Promise((r) => setTimeout(r, 200));
-      const [stats, seen] = await Promise.all([getLocal("scoperStats"), getLocal("seenSites")]);
-      renderStats(stats);
-      renderAnchor(seen);
-      if (etld1) renderSiteCookies(etld1);
+      const [stats, trust, tab] = await Promise.all([
+        getLocal("scoperStats"),
+        getLocal("scoperTrust"),
+        getActiveTab(),
+      ]);
+      await renderCard(tab, trust || {}, stats);
+      renderFooter(stats);
       btn.disabled = false;
       btn.textContent = "Sweep now";
       if (!resp) {
-        status.className = "sweep-status";
-        status.textContent = "no response from service worker";
+        status.className = "status warn";
+        status.textContent = "no response from service worker — reload extension";
       } else if (resp.gated) {
-        status.className = "sweep-status gated";
-        status.textContent = "gated — only " + resp.anchorSize + " sites known (cron needs ≥10)";
+        status.className = "status gated";
+        status.textContent = "gated — only " + resp.anchorSize + " sites known (cron needs ≥10; manual bypasses)";
       } else if (typeof resp.scanned === "number") {
-        status.className = "sweep-status ok";
+        status.className = "status ok";
         status.textContent =
           "scanned " + resp.scanned + " · rewrote " + resp.rewrites +
           " · demoted " + resp.demotions +
           (resp.failures ? " · " + resp.failures + " failed" : "");
-      } else {
-        status.className = "sweep-status";
-        status.textContent = "policy not loaded yet — reload extension";
       }
     });
   };

@@ -2,50 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=380">
+  <meta name="viewport" content="width=360">
   <link rel="stylesheet" href="popup.css">
   <title>wearecooked</title>
 </head>
 <body>
-  <div id="app">
-    <header>
-      <img src="icon48.png" alt="" class="header-logo">
-      <h1>wearecooked</h1>
-    </header>
-    <p class="tagline">cookie scoper · phase 1</p>
+  <div class="card">
+    <div class="card-title">wearecooked · scoper</div>
 
-    <section class="stats">
-      <div class="stat">
-        <div class="stat-num" id="stat-rewrites">0</div>
-        <div class="stat-label">cookies tightened</div>
-      </div>
-      <div class="stat">
-        <div class="stat-num" id="stat-demotions">0</div>
-        <div class="stat-label">trackers killed</div>
-      </div>
-    </section>
-    <p class="stats-foot" id="stats-foot">never swept</p>
+    <div class="site-line" id="site-line">—</div>
+    <div class="impact" id="impact">—</div>
 
-    <section class="site">
-      <div class="site-label">this site</div>
-      <div class="site-host" id="site-host">—</div>
-      <div class="site-class" id="site-class"></div>
-
-      <div class="site-cookies" id="site-cookies">—</div>
-
-      <div class="trust-row" id="trust-row">
-        <button class="trust-btn" data-cap="30">Trust 30d</button>
-        <button class="trust-btn" data-cap="90">Trust 90d</button>
-        <button class="trust-btn trust-remove" data-cap="0">Remove trust</button>
-      </div>
-    </section>
-
-    <section class="actions">
+    <div class="actions">
       <button id="sweep-now">Sweep now</button>
-      <div id="sweep-status" class="sweep-status"></div>
-    </section>
+      <button id="trust-toggle">Trust 30d</button>
+    </div>
+    <div class="status" id="status"></div>
 
-    <div class="anchor" id="anchor">1p anchor: — sites known</div>
+    <div class="footer">
+      <span id="lifetime">— tightened · — killed</span>
+      <span class="footer-sep">·</span>
+      <span id="last-sweep">never swept</span>
+    </div>
+
+    <a href="#" id="open-dashboard" class="dashboard-link">Open dashboard →</a>
   </div>
   <script src="popup.js"></script>
 </body>

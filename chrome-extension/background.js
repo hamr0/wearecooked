@@ -38,6 +38,13 @@ chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     self.initialSweep("manual").then(function (stats) { sendResponse(stats || {}); });
     return true;
   }
+
+  // Dashboard wrote new alarmPeriodMin to storage.local.scoperSettings —
+  // re-create the alarm to apply the new cadence.
+  if (message.type === "settings:reload") {
+    self.ensureAlarm().then(function () { sendResponse({ ok: true }); });
+    return true;
+  }
 });
 
 function updateBadge(tabId, count) {

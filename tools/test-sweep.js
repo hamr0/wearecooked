@@ -371,6 +371,54 @@ const fixtures = [
     pass("scoperStats {rewrites:" + scoperStats.rewrites + ", demotions:" + scoperStats.demotions + ", lastSweepAt:recent}");
   }
 
+  // ---- Per-site stats bucket -------------------------------------------
+  // Fixtures hit .cnn.com (rewrites + 1 demotion), .google.com (rewrite),
+  // .doubleclick.net (rewrite, 3p), .scorecardresearch.com (rewrite, 3p).
+  // www.cnn.com __Host- valid case rewrites under cnn.com too.
+  const bySite = scoperStats && scoperStats.bySite;
+  if (!bySite || !bySite["cnn.com"]) {
+    fail("scoperStats.bySite[cnn.com] populated", "got " + JSON.stringify(bySite));
+  } else if (bySite["cnn.com"].rewrites < 2 || bySite["cnn.com"].demotions < 1) {
+    fail("scoperStats.bySite[cnn.com] has rewrites>=2 + demotions>=1", "got " + JSON.stringify(bySite["cnn.com"]));
+  } else {
+    pass("scoperStats.bySite[cnn.com] = " + JSON.stringify(bySite["cnn.com"]));
+  }
+
+  // ---- Sweep history ring buffer ---------------------------------------
+  const { scoperHistory } = await chromeStub.storage.local.get("scoperHistory");
+  if (!Array.isArray(scoperHistory) || scoperHistory.length < 2) {
+    fail("scoperHistory has multiple entries", "got " + JSON.stringify(scoperHistory));
+  } else {
+    const latest = scoperHistory[0];
+    if (typeof latest.at !== "number" || typeof latest.scanned !== "number" || typeof latest.trigger !== "string") {
+      fail("scoperHistory entry shape", "got " + JSON.stringify(latest));
+    } else {
+      pass("scoperHistory ring buffer (length=" + scoperHistory.length + ", latest.trigger=" + latest.trigger + ")");
+    }
+  }
+
+  // ---- Settings + alarm period ----------------------------------------
+  // Default: no scoperSettings => getAlarmPeriod returns default (60).
+  // Set 240 => ensureAlarm uses 240. Bad value (3) => falls back to default.
+  await chromeStub.storage.local.set({ scoperSettings: { alarmPeriodMin: 240 } });
+  alarms.clear();
+  await ctx.ensureAlarm();
+  const a240 = alarms.get("scoper-sweep");
+  if (!a240 || a240.periodInMinutes !== 240) {
+    fail("ensureAlarm picks up scoperSettings.alarmPeriodMin=240", "got " + JSON.stringify(a240));
+  } else {
+    pass("ensureAlarm reads scoperSettings.alarmPeriodMin=240");
+  }
+  await chromeStub.storage.local.set({ scoperSettings: { alarmPeriodMin: 3 } }); // invalid
+  alarms.clear();
+  await ctx.ensureAlarm();
+  const aFallback = alarms.get("scoper-sweep");
+  if (!aFallback || aFallback.periodInMinutes !== 60) {
+    fail("ensureAlarm falls back to default for invalid period", "got " + JSON.stringify(aFallback));
+  } else {
+    pass("ensureAlarm falls back to default (60) for invalid period");
+  }
+
   // -------------------------------------------------------------------------
   // Phase D: trust list — popup-set scoperTrust shifts the cap to 30/90d
   // -------------------------------------------------------------------------

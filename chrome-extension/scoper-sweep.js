@@ -19,12 +19,11 @@
 // where seenSites is empty from mis-classifying every cookie as 3p.
 
 const ALARM_NAME = "scoper-sweep";
-const ALARM_PERIOD_MIN = 60;             // hourly cadence (was 240/4h; the cap is
-                                         // rolling for actively-visited sites, so
-                                         // shorter periods narrow the window during
-                                         // which a re-set cookie sits at full expiry)
-const ALARM_FIRST_DELAY_MIN = 1;         // first fire 1min after install/startup
-const MIN_SEEN_SITES_FOR_SWEEP = 10;     // gate to avoid over-demotion on cold start
+const ALARM_PERIOD_CHOICES_MIN = [15, 60, 240, 720];  // 15min / hourly / 4h / 12h
+const ALARM_PERIOD_DEFAULT_MIN = 60;                  // hourly default
+const ALARM_FIRST_DELAY_MIN = 1;                      // first fire 1min after install/startup
+const MIN_SEEN_SITES_FOR_SWEEP = 10;                  // gate to avoid over-demotion on cold start
+const HISTORY_MAX_ENTRIES = 50;                       // ring buffer size for scoperHistory
 
 const SWEEP_BATCH_SIZE = 50;
 const SWEEP_BATCH_DELAY_MS = 100;
@@ -139,7 +138,9 @@ async function initialSweep(trigger) {
   // click the button.
   if (etldSet.size < MIN_SEEN_SITES_FOR_SWEEP && trigger !== "manual") {
     console.log("[wearecooked v5 sweep] gated — only " + etldSet.size + " sites in 1p set, need " + MIN_SEEN_SITES_FOR_SWEEP + " (trigger=" + trigger + ")");
-    return { scanned: 0, rewrites: 0, demotions: 0, skips: 0, failures: 0, gated: true, anchorSize: etldSet.size };
+    const gatedRun = { scanned: 0, rewrites: 0, demotions: 0, skips: 0, failures: 0, gated: true, anchorSize: etldSet.size };
+    await appendScoperHistory({ at: Date.now(), trigger, scanned: 0, rewrites: 0, demotions: 0, gated: true, anchorSize: etldSet.size });
+    return gatedRun;
   }
 
   const classify = self.classifyCookie || (() => null);
@@ -152,6 +153,7 @@ async function initialSweep(trigger) {
   let demotions = 0;
   let skips = 0;
   let failures = 0;
+  const perSite = {}; // {etld1: {rewrites, demotions}} accumulated this sweep
 
   for (let i = 0; i < cookies.length; i += SWEEP_BATCH_SIZE) {
     const chunk = cookies.slice(i, i + SWEEP_BATCH_SIZE);
@@ -167,7 +169,12 @@ async function initialSweep(trigger) {
       const res = await setCookieAsync(details);
       if (res.ok) {
         rewrites++;
-        if (decision.reason === "first-party-tracker-to-session") demotions++;
+        if (!perSite[cookieETLD]) perSite[cookieETLD] = { rewrites: 0, demotions: 0 };
+        perSite[cookieETLD].rewrites++;
+        if (decision.reason === "first-party-tracker-to-session") {
+          demotions++;
+          perSite[cookieETLD].demotions++;
+        }
       } else {
         failures++;
       }
@@ -179,25 +186,67 @@ async function initialSweep(trigger) {
   }
 
   const stats = { scanned: cookies.length, rewrites, demotions, skips, failures };
-  await updateScoperStats(rewrites, demotions);
+  await updateScoperStats(rewrites, demotions, perSite);
+  await appendScoperHistory({
+    at: Date.now(),
+    trigger,
+    scanned: cookies.length,
+    rewrites,
+    demotions,
+    gated: false,
+    anchorSize: etldSet.size,
+  });
   console.log("[wearecooked v5 sweep] done (trigger=" + trigger + "):", stats);
   return stats;
 }
 
-// Lifetime counters surfaced in the popup. Only the work-done path
-// updates these — gated sweeps don't touch them. Reads + writes are
-// not concurrency-protected because the dedup gate makes overlapping
-// sweeps in production effectively impossible.
-async function updateScoperStats(deltaRewrites, deltaDemotions) {
+// Lifetime counters surfaced in the popup + dashboard hero. Only the
+// work-done path updates these — gated sweeps don't touch them. Reads
+// + writes are not concurrency-protected because the dedup gate makes
+// overlapping sweeps in production effectively impossible.
+//
+// perSite (optional): map of {etld1 → {rewrites, demotions}} for this
+// sweep. Merged into scoperStats.bySite so the popup's per-site impact
+// line can show "19 tightened, 3 killed" for the current eTLD+1.
+async function updateScoperStats(deltaRewrites, deltaDemotions, perSite) {
   const { scoperStats } = await chrome.storage.local.get("scoperStats");
-  const prev = scoperStats || { rewrites: 0, demotions: 0 };
+  const prev = scoperStats || { rewrites: 0, demotions: 0, bySite: {} };
+  const prevBySite = prev.bySite || {};
+  if (perSite) {
+    for (const [etld1, delta] of Object.entries(perSite)) {
+      const old = prevBySite[etld1] || { rewrites: 0, demotions: 0 };
+      prevBySite[etld1] = {
+        rewrites: old.rewrites + delta.rewrites,
+        demotions: old.demotions + delta.demotions,
+      };
+    }
+  }
   await chrome.storage.local.set({
     scoperStats: {
       rewrites: prev.rewrites + deltaRewrites,
       demotions: prev.demotions + deltaDemotions,
       lastSweepAt: Date.now(),
+      bySite: prevBySite,
     },
   });
+}
+
+// Ring buffer of recent sweeps (work-done + gated). Oldest dropped past
+// HISTORY_MAX_ENTRIES. Surfaces in the dashboard's Recent activity block.
+async function appendScoperHistory(entry) {
+  const { scoperHistory } = await chrome.storage.local.get("scoperHistory");
+  const arr = Array.isArray(scoperHistory) ? scoperHistory.slice() : [];
+  arr.unshift(entry);
+  if (arr.length > HISTORY_MAX_ENTRIES) arr.length = HISTORY_MAX_ENTRIES;
+  await chrome.storage.local.set({ scoperHistory: arr });
+}
+
+// Settings: dashboard writes scoperSettings.alarmPeriodMin via storage.
+// SW reads it on startup + when the dashboard sends "settings:reload".
+async function getAlarmPeriod() {
+  const { scoperSettings } = await chrome.storage.local.get("scoperSettings");
+  const p = scoperSettings && scoperSettings.alarmPeriodMin;
+  return ALARM_PERIOD_CHOICES_MIN.includes(p) ? p : ALARM_PERIOD_DEFAULT_MIN;
 }
 
 self.initialSweep = initialSweep;
@@ -218,14 +267,16 @@ chrome.tabs.onUpdated.addListener((_tabId, change, tab) => {
 });
 
 // Cron. Alarms don't persist across browser restarts in MV3, so create
-// on both install and startup. chrome.alarms.create is idempotent by
-// name within a single session.
-function ensureAlarm() {
+// on both install and startup. Also (re)created when the dashboard
+// changes the sweep period via the "settings:reload" message.
+async function ensureAlarm() {
+  const period = await getAlarmPeriod();
   chrome.alarms.create(ALARM_NAME, {
     delayInMinutes: ALARM_FIRST_DELAY_MIN,
-    periodInMinutes: ALARM_PERIOD_MIN,
+    periodInMinutes: period,
   });
 }
+self.ensureAlarm = ensureAlarm;
 
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ALARM_NAME) initialSweep("alarm");
@@ -262,4 +313,4 @@ async function bootstrapSeenSitesFromOpenTabs() {
 }
 bootstrapSeenSitesFromOpenTabs();
 
-console.log("[wearecooked v5 sweep] cron + seen-sites handlers registered (alarm=" + ALARM_PERIOD_MIN + "min, gate=" + MIN_SEEN_SITES_FOR_SWEEP + " sites). Manual: self.initialSweep('manual')");
+console.log("[wearecooked v5 sweep] cron + seen-sites handlers registered (alarm=" + ALARM_PERIOD_DEFAULT_MIN + "min default, gate=" + MIN_SEEN_SITES_FOR_SWEEP + " sites). Manual: self.initialSweep('manual')");

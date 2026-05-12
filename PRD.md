@@ -71,6 +71,99 @@ Surfaces:
 | 9 | Toggle UI | Popup row + detailed controls in cookie dashboard | Discoverable without bloating popup |
 | 10 | Visibility | Live counter "N cookies scoped on this site" | Show what we did, don't silently lower the score |
 
+### Phase 1 UI surfaces (locked 2026-05-13)
+
+Two surfaces. **Popup** is contextual / per-site. **Dashboard** is global / cross-site. No "current site" card in the dashboard; no full whitelist in the popup. Same vocabulary across both.
+
+**Popup — `popup.html`** (single Cookie scoper card; the same DOM later embeds inside wearehere's popup as one of several detection cards):
+
+```
+┌─ wearecooked · scoper ─────────────────
+│  nytimes.com · 7 day cap
+│  longest cookie 400d → 7d · 19 tightened, 3 killed
+│
+│  [ Sweep now ]   [ Trust 30d ]
+│
+│  ──────────────────────────────────────
+│  113 tightened · 31 killed · last sweep just now
+└────────────────────────────────────────
+```
+
+Impact-line state machine:
+
+| State | Site line | Impact line |
+|---|---|---|
+| Pre-first-sweep on this site | `nytimes.com · 7 day cap` | `longest cookie 400d → will trim to 7d` |
+| After a sweep ran here | `nytimes.com · 7 day cap` | `longest cookie 400d → 7d · 19 tightened, 3 killed` |
+| All cookies ≤ 7d already | `example.com · 7 day cap` | `all cookies within cap ✓` |
+| Trusted | `nytimes.com · trusted · 30d cap` | `cookies passing through · 0 tightened` |
+
+Action rules:
+
+- `[ Sweep now ]` always present.
+- `[ Trust 30d ]` when site is untrusted; replaced by `[ Remove trust ]` when trusted.
+- **`Trust 90d` does not ship in the popup** — that tier lives in the dashboard whitelist only. 90d is "I live here," which is a deliberate decision worth the extra click.
+
+**Dashboard — `dashboard.html`** (standalone tab; opened from popup or `chrome-extension://<id>/dashboard.html`; later embedded into wearehere's `#panel-cookies`):
+
+```
+┌─ Cookie scoper ──────────────────────────────────────────────────────────┐
+│  157           45               47               last sweep              │
+│  tightened     trackers killed  sites watched    12m ago                 │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ Trusted sites · 9 ──────────────────────────────────────────────────────┐
+│  Domain               Trust    Cookies stored    Actions                 │
+│  gmail.com            90d      42                [→ 30d]  [✕]            │
+│  github.com           30d      18                [→ 90d]  [✕]            │
+│  …                                                                       │
+│  Add  [_______________________________]  [30d ▾]   [Add]                 │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ Settings ───────────────────────────────────────────────────────────────┐
+│  Sweep period      ( ) 15 min   (•) hourly   ( ) 4 hrs   ( ) 12 hrs      │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌─ Recent activity ─────────────────────────────────────────────── [▾] ────┐
+│  1p anchor: 47 sites watched · gate opens at 10 (open)                   │
+│  14:32  alarm     1047  rewrote 12  demoted 3                            │
+│  13:32  alarm     1043  rewrote  0  demoted 0                            │
+│  …                                                                       │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+Behaviors:
+- Trust does **not** decay. No "Expires" column. Until ✕, trust holds.
+- Tier toggle is a single-button flip: 30d row shows `[→ 90d]`, 90d row shows `[→ 30d]`.
+- Add-row default is 30d (selector flips to 90d). 90d is the deliberate tier.
+- Sweep period radios mutate `scoperSettings.alarmPeriodMin` and recreate the alarm.
+- Recent activity collapsed by default; expand shows last 10, "show all" reveals 50.
+- **No "Sweep now" or per-site detail in dashboard.** Manual sweep is contextual → popup only.
+
+**Storage contract (locked):**
+
+```js
+chrome.storage.local: {
+  scoperStats: {
+    rewrites:    number,                       // lifetime
+    demotions:   number,                       // lifetime
+    lastSweepAt: number,                       // ms epoch
+    bySite: { [etld1]: { rewrites, demotions } } // per-site, accumulated
+  },
+  scoperTrust:    { [etld1]: { capDays: 30|90, addedAt: number } },
+  scoperSettings: { alarmPeriodMin: 15 | 60 | 240 | 720 },
+  scoperHistory:  [ { at, trigger, scanned, rewrites, demotions, gated, anchorSize } ],
+                  // ring buffer, oldest dropped past 50
+  seenSites:      [ "eTLD+1", … ]
+}
+```
+
+**Cross-extension integration path (later, not now):**
+
+When wearehere is ready to embed cookie-scoper UI:
+- Cookie scoper popup card → ported into wearehere's popup as one of its detection cards (same DOM/CSS lifted from `popup.html`).
+- Cookie scoper dashboard → embedded via iframe in wearehere's `#panel-cookies`, OR ported with `externally_connectable` messaging for shared theming. v1 is the iframe.
+
 ### Phase 2 — Fingerprint farbler
 
 **Promise.** Sites that probe canvas / WebGL / AudioContext / navigator entropy get deterministic per-origin-per-session noise instead of the real device signal. The MAIN-world `inject.js` from v4 already wraps these APIs for *notification*; phase 2 promotes the wrappers from "log" to "lie."

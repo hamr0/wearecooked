@@ -78,7 +78,16 @@ function isThirdParty(cookieHost, topHost) {
   return cookieETLD !== topETLD;
 }
 
-function decideAction({ cookie, topHost, thirdParty, trustList }) {
+// Decision priority (top wins):
+//   1. unparseable domain                            -> skip
+//   2. already session                               -> skip
+//   3. third-party (by topHost or thirdParty arg)    -> rewrite session
+//   4. 1p AND OCD classifies as Marketing/Analytics  -> rewrite session
+//      (trust does not extend to known trackers; same spirit as #3)
+//   5. 1p trusted                                    -> rewrite 30d/90d
+//   6. 1p untrusted                                  -> rewrite 7d
+//   7. result cap >= cookie's remaining life         -> skip already-within-cap
+function decideAction({ cookie, topHost, thirdParty, trustList, cookieClass }) {
   const cookieETLD = etld1Of(cookie.domain);
   if (!cookieETLD) {
     return { action: "skip", capDays: null, reason: "unparseable-domain", etld1: null };
@@ -90,25 +99,35 @@ function decideAction({ cookie, topHost, thirdParty, trustList }) {
   const tp = thirdParty !== undefined
     ? !!thirdParty
     : (topHost ? isThirdParty(cookie.domain, topHost) : false);
+
+  if (tp) {
+    return { action: "rewrite", capDays: null, reason: "third-party-to-session", etld1: cookieETLD };
+  }
+
+  if (cookieClass && (cookieClass.category === "Marketing" || cookieClass.category === "Analytics")) {
+    return {
+      action: "rewrite",
+      capDays: null,
+      reason: "first-party-tracker-to-session",
+      etld1: cookieETLD,
+      vendor: cookieClass.vendor,
+    };
+  }
+
+  const trust = trustList && trustList.get && trustList.get(cookieETLD);
   let capDays;
   let reason;
-  if (tp) {
-    capDays = null;
-    reason = "third-party-to-session";
+  if (trust && (trust.capDays === TIER_TRUSTED_DEFAULT_DAYS || trust.capDays === TIER_TRUSTED_POWER_DAYS)) {
+    capDays = trust.capDays;
+    reason = "trusted-" + capDays + "d";
   } else {
-    const trust = trustList && trustList.get && trustList.get(cookieETLD);
-    if (trust && (trust.capDays === TIER_TRUSTED_DEFAULT_DAYS || trust.capDays === TIER_TRUSTED_POWER_DAYS)) {
-      capDays = trust.capDays;
-      reason = "trusted-" + capDays + "d";
-    } else {
-      capDays = TIER_FIRST_PARTY_DAYS;
-      reason = "first-party-7d";
-    }
+    capDays = TIER_FIRST_PARTY_DAYS;
+    reason = "first-party-7d";
   }
 
   const nowSec = Date.now() / 1000;
   const remainingDays = (cookie.expirationDate - nowSec) / SEC_PER_DAY;
-  if (capDays !== null && remainingDays <= capDays) {
+  if (remainingDays <= capDays) {
     return { action: "skip", capDays, reason: "already-within-cap", etld1: cookieETLD };
   }
 

@@ -1,9 +1,10 @@
 "use strict";
 
 // wearecooked v5 cookie scoper (Phase 1). Loaded into the v4 service
-// worker via importScripts — order matters: psl -> scoper -> listener.
-// v4 scanner code follows unchanged below.
-importScripts("psl.js", "scoper.js", "scoper-listener.js");
+// worker via importScripts — order matters: data files (psl,
+// cookie-database) -> policy -> listener. v4 scanner code below is
+// unchanged.
+importScripts("psl.js", "cookie-database.js", "scoper.js", "scoper-listener.js");
 
 function tabKey(tabId) {
   return "tab:" + tabId;

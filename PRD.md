@@ -32,6 +32,9 @@ Considered alternatives:
 | Third-party (always) | **Session** (dies on tab close); trust does not extend to third parties |
 | First-party, trusted (popup one-click) | **30 days** (default trust action) |
 | First-party, trusted (power-user opt) | **90 days** (dashboard toggle) |
+| First-party **by domain** but classified by OCD as `Marketing` or `Analytics` | **Session** (added 2026-05-12 after dogfood) — trust does not extend to known trackers, same spirit as the third-party rule |
+
+**Why the tracker-demotion row.** Real dogfood on cnn.com surfaced that many "trackers" set their cookies on `.cnn.com` (via Google/Adobe/Quantcast/etc. scripts running inside the page). They look first-party by domain but are tracker cookies by name. Without this rule, `__gads`, `__gpi`, `__qca`, `AMCV_*` and friends would survive at 7d (or 30/90 if trusted) instead of dying with the session. The Open Cookie Database we vendored already classifies them — wiring its `category` field into the policy turns a "1p by domain" cookie into "session" when its name is a known tracker. The 7d cap remains for Functional, Necessary, Security, Personalization. Trust still extends to non-tracker 1p cookies on the trusted site.
 
 Surfaces:
 

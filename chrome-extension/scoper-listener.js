@@ -77,8 +77,9 @@ chrome.cookies.onChanged.addListener(async ({ cookie, removed }) => {
 
   const [openSet, trustList] = await Promise.all([openTabETLDSet(), loadTrustList()]);
   const thirdParty = !openSet.has(cookieETLD);
+  const cookieClass = self.classifyCookie ? self.classifyCookie(cookie.name) : null;
 
-  const decision = policy.decideAction({ cookie, thirdParty, trustList });
+  const decision = policy.decideAction({ cookie, thirdParty, trustList, cookieClass });
   if (decision.action !== "rewrite") return;
 
   const key = cookieKey(cookie);
@@ -98,10 +99,9 @@ chrome.cookies.onChanged.addListener(async ({ cookie, removed }) => {
       console.warn("[wearecooked v5 scoper] set failed:", chrome.runtime.lastError && chrome.runtime.lastError.message, details);
       inflight.delete(key);
     } else {
-      console.log(
-        "[wearecooked v5 scoper] " + decision.reason + ":",
-        { name: result.name, domain: result.domain, capDays: decision.capDays, session: result.session },
-      );
+      const payload = { name: result.name, domain: result.domain, capDays: decision.capDays, session: result.session };
+      if (decision.vendor) payload.vendor = decision.vendor;
+      console.log("[wearecooked v5 scoper] " + decision.reason + ":", payload);
     }
   });
 });

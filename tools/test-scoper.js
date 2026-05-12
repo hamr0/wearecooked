@@ -139,6 +139,83 @@ eq(
 );
 
 eq(
+  "1p Marketing-named cookie -> session (tracker demotion)",
+  decideAction({
+    cookie: { domain: ".cnn.com", session: false, expirationDate: dayFromNow(365) },
+    thirdParty: false,
+    trustList: new Map(),
+    cookieClass: { category: "Marketing", vendor: "DoubleClick/Google Marketing" },
+  }),
+  { action: "rewrite", capDays: null, reason: "first-party-tracker-to-session", etld1: "cnn.com", vendor: "DoubleClick/Google Marketing" },
+);
+
+eq(
+  "1p Analytics-named cookie -> session (tracker demotion)",
+  decideAction({
+    cookie: { domain: ".cnn.com", session: false, expirationDate: dayFromNow(365) },
+    thirdParty: false,
+    trustList: new Map(),
+    cookieClass: { category: "Analytics", vendor: "ABTasty" },
+  }),
+  { action: "rewrite", capDays: null, reason: "first-party-tracker-to-session", etld1: "cnn.com", vendor: "ABTasty" },
+);
+
+eq(
+  "1p Functional-named cookie -> 7d (NOT demoted)",
+  decideAction({
+    cookie: { domain: ".cnn.com", session: false, expirationDate: dayFromNow(365) },
+    thirdParty: false,
+    trustList: new Map(),
+    cookieClass: { category: "Functional", vendor: "OneTrust" },
+  }),
+  { action: "rewrite", capDays: 7, reason: "first-party-7d", etld1: "cnn.com" },
+);
+
+eq(
+  "1p Security-named cookie -> 7d (NOT demoted; e.g. __eoi)",
+  decideAction({
+    cookie: { domain: ".cnn.com", session: false, expirationDate: dayFromNow(365) },
+    thirdParty: false,
+    trustList: new Map(),
+    cookieClass: { category: "Security", vendor: "Google AdSense" },
+  }),
+  { action: "rewrite", capDays: 7, reason: "first-party-7d", etld1: "cnn.com" },
+);
+
+eq(
+  "trust does NOT extend to known tracker -> session",
+  decideAction({
+    cookie: { domain: ".cnn.com", session: false, expirationDate: dayFromNow(365) },
+    thirdParty: false,
+    trustList: new Map([["cnn.com", { capDays: 90 }]]),
+    cookieClass: { category: "Marketing", vendor: "Quantcast" },
+  }),
+  { action: "rewrite", capDays: null, reason: "first-party-tracker-to-session", etld1: "cnn.com", vendor: "Quantcast" },
+);
+
+eq(
+  "trust DOES extend to Functional cookie on trusted site",
+  decideAction({
+    cookie: { domain: ".cnn.com", session: false, expirationDate: dayFromNow(365) },
+    thirdParty: false,
+    trustList: new Map([["cnn.com", { capDays: 30 }]]),
+    cookieClass: { category: "Functional", vendor: "OneTrust" },
+  }),
+  { action: "rewrite", capDays: 30, reason: "trusted-30d", etld1: "cnn.com" },
+);
+
+eq(
+  "1p unknown name (no OCD entry) -> 7d default",
+  decideAction({
+    cookie: { domain: ".cnn.com", session: false, expirationDate: dayFromNow(365) },
+    thirdParty: false,
+    trustList: new Map(),
+    cookieClass: null,
+  }),
+  { action: "rewrite", capDays: 7, reason: "first-party-7d", etld1: "cnn.com" },
+);
+
+eq(
   "thirdParty override true -> session (even with matching topHost)",
   decideAction({
     cookie: { domain: "cnn.com", session: false, expirationDate: dayFromNow(365) },

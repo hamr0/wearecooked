@@ -26,6 +26,10 @@ function cookieKey(c) { return c.domain + "|" + c.path + "|" + c.name; }
 
 let openTabs = [];
 const sessionStorage = new Map();
+const localStorage = new Map();
+const alarms = new Map();
+const onAlarmListeners = [];
+const onTabsUpdatedListeners = [];
 
 const cookiesApi = {
   getAll(_query) {
@@ -63,29 +67,47 @@ const tabsApi = {
   query(_q) {
     return Promise.resolve(openTabs.map((t) => ({ ...t })));
   },
+  onUpdated: {
+    addListener(fn) { onTabsUpdatedListeners.push(fn); },
+  },
 };
 
-const storageApi = {
-  session: {
+function makeStorageArea(store) {
+  return {
     get(key) {
       const out = {};
       if (typeof key === "string") {
-        if (sessionStorage.has(key)) out[key] = sessionStorage.get(key);
+        if (store.has(key)) out[key] = store.get(key);
       } else if (Array.isArray(key)) {
-        for (const k of key) if (sessionStorage.has(k)) out[k] = sessionStorage.get(k);
+        for (const k of key) if (store.has(k)) out[k] = store.get(k);
+      } else if (key === null || key === undefined) {
+        for (const [k, v] of store) out[k] = v;
       }
       return Promise.resolve(out);
     },
     set(obj) {
-      for (const [k, v] of Object.entries(obj)) sessionStorage.set(k, v);
+      for (const [k, v] of Object.entries(obj)) store.set(k, v);
       return Promise.resolve();
     },
+  };
+}
+
+const storageApi = {
+  session: makeStorageArea(sessionStorage),
+  local: makeStorageArea(localStorage),
+};
+
+const alarmsApi = {
+  create(name, info) { alarms.set(name, info); },
+  clear(name) { return Promise.resolve(alarms.delete(name)); },
+  onAlarm: {
+    addListener(fn) { onAlarmListeners.push(fn); },
   },
 };
 
 const runtimeApi = {
-  // The sweep registers onInstalled/onStartup handlers at module load —
-  // capture them but never auto-fire; tests invoke initialSweep directly.
+  // Sweep registers onInstalled/onStartup handlers at module load —
+  // capture but don't auto-fire; tests invoke initialSweep directly.
   onInstalled: { addListener(_fn) { /* no-op */ } },
   onStartup: { addListener(_fn) { /* no-op */ } },
   lastError: null,
@@ -95,6 +117,7 @@ const chromeStub = {
   cookies: cookiesApi,
   tabs: tabsApi,
   storage: storageApi,
+  alarms: alarmsApi,
   runtime: runtimeApi,
 };
 
@@ -125,12 +148,6 @@ load("chrome-extension/scoper-sweep.js");
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-
-// Anchor: any open tab on cnn.com makes .cnn.com first-party for the sweep.
-openTabs = [
-  { url: "https://www.cnn.com/", status: "complete" },
-  { url: "https://www.google.com/", status: "complete" },
-];
 
 const yearsOut = (n) => NOW_SEC + n * 365 * SEC_PER_DAY;
 const daysOut = (n) => NOW_SEC + n * SEC_PER_DAY;
@@ -204,14 +221,67 @@ const fixtures = [
 // ---------------------------------------------------------------------------
 
 (async () => {
-  // Drain the module's top-level `initialSweep("sw-load")` against the
-  // *empty* cookie store first, so its run doesn't race with the two
-  // manual passes that follow. After this point each manual sweep runs
-  // on a known state.
+  // Settle module load (listener registration) before the first phase.
   await new Promise((r) => setTimeout(r, 10));
 
-  // Seed AFTER the sw-load drain so the first real pass sees fresh
-  // fixtures, and we can assert non-trivial rewrite counts.
+  let passed = 0;
+  let failed = 0;
+  const fail = (label, msg) => { failed++; console.log("  FAIL  " + label + "\n        " + msg); };
+  const pass = (label) => { passed++; console.log("  PASS  " + label); };
+
+  // -------------------------------------------------------------------------
+  // Phase A: gate-trip — empty seenSites + zero open tabs -> sweep skips
+  // -------------------------------------------------------------------------
+  openTabs = [];
+  // localStorage already empty -> seenSites = []
+  const gateRun = await ctx.initialSweep("manual");
+  if (gateRun && gateRun.gated === true && gateRun.rewrites === 0) {
+    pass("gate trips on cold start (seenSites < 10)");
+  } else {
+    fail("gate trips on cold start (seenSites < 10)", "expected {gated:true,rewrites:0}; got " + JSON.stringify(gateRun));
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase B: seenSitesAdd via simulated chrome.tabs.onUpdated
+  // -------------------------------------------------------------------------
+  if (onTabsUpdatedListeners.length !== 1) {
+    fail("tabs.onUpdated registered once", "got " + onTabsUpdatedListeners.length + " listeners");
+  } else {
+    const handler = onTabsUpdatedListeners[0];
+    handler(1, { status: "complete" }, { url: "https://www.cnn.com/" });
+    handler(2, { status: "complete" }, { url: "https://news.bbc.co.uk/" });
+    handler(3, { status: "loading" }, { url: "https://www.ignored.com/" });   // not complete
+    handler(4, { status: "complete" }, { url: "chrome://newtab" });            // unparseable etld+1
+    // Let the async seenSitesAdd writes drain.
+    await new Promise((r) => setTimeout(r, 10));
+    const seen = await ctx.seenSitesGet();
+    const want = new Set(["cnn.com", "bbc.co.uk"]);
+    const got = new Set(seen);
+    const same = got.size === want.size && [...want].every((v) => got.has(v));
+    if (same) {
+      pass("seenSitesAdd via tabs.onUpdated (cnn.com + bbc.co.uk)");
+    } else {
+      fail("seenSitesAdd via tabs.onUpdated", "want " + JSON.stringify([...want]) + " got " + JSON.stringify([...got]));
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // Phase C: real sweep — populate seenSites past gate, seed fixtures
+  // -------------------------------------------------------------------------
+  // Pad seenSites to >= 10 sites so the gate opens. Use the public
+  // seenSitesAdd API so the in-memory cache + storage stay in sync.
+  // (Phase B already added cnn.com + bbc.co.uk.)
+  const padSites = [
+    "google.com", "nytimes.com", "github.com", "wikipedia.org",
+    "stackoverflow.com", "reddit.com", "amazon.com", "mozilla.org",
+  ];
+  await Promise.all(padSites.map((host) => ctx.seenSitesAdd(host)));
+  openTabs = [
+    { url: "https://www.cnn.com/", status: "complete" },
+    { url: "https://www.google.com/", status: "complete" },
+  ];
+
+  // Seed cookie fixtures.
   for (const f of fixtures) {
     cookieStore.set(cookieKey(f.cookie), { ...f.cookie });
   }
@@ -219,19 +289,8 @@ const fixtures = [
 
   // Pass 1: real work. Expect rewrites + demotions > 0.
   const pass1 = await ctx.initialSweep("manual");
-
-  // Pass 2: idempotency. Expect rewrites == 0 (everything now within cap
-  // or already session). If non-zero, the policy isn't stable across
-  // sweeps — the cron design would thrash cookies on every fire.
+  // Pass 2: idempotency. Expect rewrites == 0.
   const pass2 = await ctx.initialSweep("manual");
-
-  // -------------------------------------------------------------------------
-  // Assertions
-  // -------------------------------------------------------------------------
-  let passed = 0;
-  let failed = 0;
-  const fail = (label, msg) => { failed++; console.log("  FAIL  " + label + "\n        " + msg); };
-  const pass = (label) => { passed++; console.log("  PASS  " + label); };
 
   for (const f of fixtures) {
     const key = cookieKey(f.cookie);

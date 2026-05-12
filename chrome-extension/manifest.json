@@ -3,7 +3,7 @@
   "name": "wearecooked",
   "version": "4.0.0",
   "description": "See what cookies websites drop on you — and the hidden pixels that deliver them.",
-  "permissions": ["cookies", "storage"],
+  "permissions": ["cookies", "storage", "alarms"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_title": "wearecooked",

@@ -230,15 +230,26 @@ const fixtures = [
   const pass = (label) => { passed++; console.log("  PASS  " + label); };
 
   // -------------------------------------------------------------------------
-  // Phase A: gate-trip — empty seenSites + zero open tabs -> sweep skips
+  // Phase A: gate-trip — empty seenSites + zero open tabs -> auto sweep skips
+  // Manual triggers (popup button) intentionally bypass the gate, so test
+  // with "alarm" which is the cron-driven path the gate is meant to guard.
   // -------------------------------------------------------------------------
   openTabs = [];
   // localStorage already empty -> seenSites = []
-  const gateRun = await ctx.initialSweep("manual");
+  const gateRun = await ctx.initialSweep("alarm");
   if (gateRun && gateRun.gated === true && gateRun.rewrites === 0) {
-    pass("gate trips on cold start (seenSites < 10)");
+    pass("gate trips on cold start auto-sweep (seenSites < 10, trigger=alarm)");
   } else {
-    fail("gate trips on cold start (seenSites < 10)", "expected {gated:true,rewrites:0}; got " + JSON.stringify(gateRun));
+    fail("gate trips on cold start auto-sweep (seenSites < 10, trigger=alarm)", "expected {gated:true,rewrites:0}; got " + JSON.stringify(gateRun));
+  }
+  // And confirm manual bypasses the gate on the same empty state.
+  // (Reset dedup so the next 'alarm' in another test wouldn't be blocked.)
+  sessionStorage.clear();
+  const manualBypass = await ctx.initialSweep("manual");
+  if (manualBypass && manualBypass.gated !== true) {
+    pass("manual bypasses gate (trigger=manual, sees " + (manualBypass.scanned || 0) + " cookies)");
+  } else {
+    fail("manual bypasses gate", "expected non-gated run; got " + JSON.stringify(manualBypass));
   }
 
   // -------------------------------------------------------------------------

@@ -11,14 +11,22 @@
 document.addEventListener("DOMContentLoaded", init);
 
 async function init() {
-  const [stats, trust, activeTab] = await Promise.all([
+  const [stats, trust, seen, activeTab] = await Promise.all([
     getLocal("scoperStats"),
     getLocal("scoperTrust"),
+    getLocal("seenSites"),
     getActiveTab(),
   ]);
   renderStats(stats);
   renderSite(activeTab, trust || {});
+  renderAnchor(seen);
   wireSweepButton();
+}
+
+function renderAnchor(seen) {
+  const count = Array.isArray(seen) ? seen.length : 0;
+  document.getElementById("anchor").textContent =
+    "1p anchor: " + count + " sites known" + (count < 10 ? " (cron gate opens at 10)" : "");
 }
 
 function getLocal(key) {
@@ -139,17 +147,35 @@ async function handleTrustClick(etld1, cap) {
 
 function wireSweepButton() {
   const btn = document.getElementById("sweep-now");
+  const status = document.getElementById("sweep-status");
   btn.onclick = () => {
     btn.disabled = true;
     btn.textContent = "Sweeping…";
+    status.className = "sweep-status";
+    status.textContent = "";
     chrome.runtime.sendMessage({ type: "sweep:now" }, async (resp) => {
-      // Even if no listener responded, re-render after a brief delay so
-      // the user sees the updated stats from the autonomous sweep path.
-      await new Promise((r) => setTimeout(r, 250));
-      const stats = await getLocal("scoperStats");
+      await new Promise((r) => setTimeout(r, 200));
+      const [stats, seen] = await Promise.all([getLocal("scoperStats"), getLocal("seenSites")]);
       renderStats(stats);
+      renderAnchor(seen);
       btn.disabled = false;
-      btn.textContent = resp && resp.gated ? "Sweep again" : "Sweep now";
+      btn.textContent = "Sweep now";
+      if (!resp) {
+        status.className = "sweep-status";
+        status.textContent = "no response from service worker";
+      } else if (resp.gated) {
+        status.className = "sweep-status gated";
+        status.textContent = "gated — only " + resp.anchorSize + " sites known (cron needs ≥10)";
+      } else if (typeof resp.scanned === "number") {
+        status.className = "sweep-status ok";
+        status.textContent =
+          "scanned " + resp.scanned + " · rewrote " + resp.rewrites +
+          " · demoted " + resp.demotions +
+          (resp.failures ? " · " + resp.failures + " failed" : "");
+      } else {
+        status.className = "sweep-status";
+        status.textContent = "policy not loaded yet — reload extension";
+      }
     });
   };
 }

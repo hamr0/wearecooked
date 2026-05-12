@@ -138,3 +138,20 @@ h1 {
 }
 #sweep-now:hover { background: #ff8585; }
 #sweep-now:disabled { opacity: 0.5; cursor: wait; }
+
+.sweep-status {
+  font-size: 11px;
+  color: #888;
+  margin-top: 8px;
+  min-height: 14px;
+  text-align: center;
+}
+.sweep-status.ok { color: #5ed1a0; }
+.sweep-status.gated { color: #e0a458; }
+
+.anchor {
+  font-size: 10px;
+  color: #555;
+  margin-top: 10px;
+  text-align: center;
+}

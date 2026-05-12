@@ -129,9 +129,14 @@ async function initialSweep(trigger) {
   }
 
   const etldSet = await sweepETLDSet();
-  if (etldSet.size < MIN_SEEN_SITES_FOR_SWEEP) {
+  // The seen-sites gate protects automatic sweeps on cold-start from
+  // over-demoting pre-existing cookies (everything would look 3p).
+  // `manual` triggers come from the popup button — explicit user intent
+  // overrides the gate. The user accepts the cold-start risk when they
+  // click the button.
+  if (etldSet.size < MIN_SEEN_SITES_FOR_SWEEP && trigger !== "manual") {
     console.log("[wearecooked v5 sweep] gated — only " + etldSet.size + " sites in 1p set, need " + MIN_SEEN_SITES_FOR_SWEEP + " (trigger=" + trigger + ")");
-    return { scanned: 0, rewrites: 0, demotions: 0, skips: 0, failures: 0, gated: true };
+    return { scanned: 0, rewrites: 0, demotions: 0, skips: 0, failures: 0, gated: true, anchorSize: etldSet.size };
   }
 
   const classify = self.classifyCookie || (() => null);

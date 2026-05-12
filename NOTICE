@@ -16,3 +16,20 @@ copyright holder, the relicense is unilateral. The MIT-licensed releases
 remain available in the git history at any tagged version preceding the
 relicense commit; consumers who prefer the MIT terms may pin to such a
 tag.
+
+------------------------------------------------------------------------
+Third-party data attribution
+
+This product bundles factual data lifted from an upstream open-source
+project. No upstream source code is included; only the factual list
+(cookie names and their categorization) is vendored, with attribution.
+
+1. Open Cookie Database
+   https://github.com/jkwakman/Open-Cookie-Database
+   Licensed under the Apache License, Version 2.0.
+   Used by: chrome-extension/cookie-database.js
+   Snapshot: 0ee5a17fe1cb (upstream)
+   Chain of custody: lifted into the sibling repo "wearehere" at commit
+   2d81a5a71ed29ec2e663dee2610b686799ea81aa (2026-05-12, Apache-2.0); the
+   same byte-identical file is vendored here on 2026-05-12 by the
+   wearecooked v5 Phase 1 work.

@@ -22,7 +22,22 @@ Considered alternatives:
 
 ### Phase 1 — Cookie scoper
 
-**Promise.** Cookies the site sets get auto-shortened to a user-tunable cap (default 7 days, matches Safari ITP envelope), unless the site is on the user's trust list. Third-party cookies convert to session by default. The cookie cleaner from v4 stays as the destructive escalation.
+**Promise.** Cookies the site sets get auto-shortened, unless the site is on the user's trust list. Third-party cookies convert to session by default. The cookie cleaner from v4 stays as the destructive escalation.
+
+**v5 UX defaults (locked 2026-05-12).** The product is default-ON with non-negotiable defaults to defeat choice paralysis. A graduated trust model replaces the original "tunable cap" idea:
+
+| Cookie origin / trust state | Resulting expiry |
+|---|---|
+| First-party, untrusted (default) | **7 days** (ITP-equivalent) |
+| Third-party (always) | **Session** (dies on tab close); trust does not extend to third parties |
+| First-party, trusted (popup one-click) | **30 days** (default trust action) |
+| First-party, trusted (power-user opt) | **90 days** (dashboard toggle) |
+
+Surfaces:
+
+- **Popup**: one-click "Trust this site" button → adds current eTLD+1 with 30d cap. Visible, undo-able from the dashboard. This is the "site broke, fix it in two clicks" escape hatch that makes default-ON survivable.
+- **Dashboard**: list of trusted sites with per-site 30d/90d radio + remove button. Power-user surface only; basic users never need to open it.
+- **Counter on existing cookies card**: "N cookies scoped on this site" — show what we did, not silently lower the score.
 
 **What we can do (today, MV3, no external deps):**
 
@@ -43,9 +58,9 @@ Considered alternatives:
 | # | Decision | Default | Rationale |
 |---|---|---|---|
 | 1 | Third-party definition | eTLD+1 mismatch via bundled PSL | Heuristic split-on-dot breaks `.co.uk` |
-| 2 | First-party cap | 7 days (tunable 1 / 7 / 30) | Matches Safari ITP compat envelope |
-| 3 | Third-party action | Convert to session | Preserves embed function during visit; dies on close |
-| 4 | Trust marking | Explicit user button only — no login auto-detect | Auto-detect → false positives → we own the bug |
+| 2 | First-party cap | 7 days, **not tunable** (see "v5 UX defaults" — 30d/90d only via trust) | Matches Safari ITP envelope; tunable slider invites choice paralysis we explicitly traded off |
+| 3 | Third-party action | Convert to session **always** (trust does not extend to 3p) | Preserves embed function during visit; dies on close; trusting a 1p doesn't trust its trackers |
+| 4 | Trust marking | Explicit user button only (popup one-click) — no login auto-detect | Auto-detect → false positives → we own the bug |
 | 5 | HttpOnly cookies | Scope on non-trusted; leave alone on trusted | Untrusted-site logins *should* expire fast |
 | 6 | `__Host-` / `__Secure-` prefix | Rewrite faithfully or skip | Chrome rejects malformed prefixed cookies |
 | 7 | API choice | `chrome.cookies.onChanged` over DNR `modifyHeaders` | Simpler debugging, no rule budget |
@@ -106,9 +121,24 @@ The features lean on prior art from two archived/dying projects. The plan is to 
 | **Open Cookie Database** ([github.com/jkwakman/Open-Cookie-Database](https://github.com/jkwakman/Open-Cookie-Database)) | Apache-2.0 | Curated 2,264-cookie classification (1,989 exact + 260 prefix patterns) × {Analytics, Marketing, Functional, Necessary, Security, Personalization} across 354 vendors | Lifted as factual data with attribution. Apache-2.0 matches wearecooked's own license (relicensed 2026-05-12); clean compatibility. Already vendored in wearehere (`cookie-database.js`); wearecooked v5 imports the same snapshot. |
 | **JShelter** ([jshelter.org](https://jshelter.org), GitHub mirror [patrik-dekys/JShelter-webextension](https://github.com/patrik-dekys/JShelter-webextension)) | GPL-3.0 | Enumerated list of fingerprint surfaces (~149 properties/methods in `wrappers-lvl_0_1.json`); algorithm specs for canvas/audio/WebGL farbling, font enumeration limits, time-precision reduction | Algorithms not copyrightable. Surface list is facts (already vendored in wearehere as `fingerprint-surfaces.js`); wearecooked v5 imports it. Implementations rewritten fresh — never lift JShelter source files. If we ever need to lift a JShelter source file verbatim, it lives in a GPL-3-licensed sub-package with its own NOTICE; otherwise wearecooked v5 stays Apache-2.0. |
 | **CanvasBlocker** ([github.com/kkapsner/CanvasBlocker](https://github.com/kkapsner/CanvasBlocker)) | MPL-2.0 | Canvas-specific spoofing reference | MPL is per-file; can sub-module a verbatim file under MPL while wearecooked stays Apache-2.0. |
-| **Brave farbling** (`brave-core`) | MPL-2.0 | Published algorithm specs (renderer-level C++; not directly liftable) | Spec is reference material; reimplementation in JS is greenfield. |
+| **Brave farbling** (`brave-core`) | MPL-2.0 | Published algorithm specs + short C++ snippets used as reference only (e.g. seeded-noise pixel-perturb shape, audio buffer perturbation density). Re-implemented in JS. | Algorithms are not copyrightable. We may read `brave-core` source to clarify a spec, but never link/import/transcribe verbatim — the *structural* wall is "extensions ship JS, not C++ inside Blink," not the license. MPL-2.0 is per-file friendly for C++ projects; irrelevant here. Attribute the reference in NOTICE; never claim Brave-equivalent ceiling. |
 
 **Rule of thumb:** lift lists and specs; don't lift source files unless we're willing to sandbox them under their original license.
+
+## Competitive landscape (surveyed 2026-05-12)
+
+Re-surveyed Chrome's cookie-management extension landscape before locking the Phase 1 mechanism. The graduated-cap combo (1p=7d / 3p=session / trust=30d/90d / default-ON / one-click popup trust) is not packaged anywhere. Closest prior art and the precise differentiator vs each:
+
+| Tool | Mechanism | What it shares | What it lacks |
+|---|---|---|---|
+| **Chrome (native, 2024+)** | 400-day cap on any cookie with `Expires`/`Max-Age` | Cap-rewrite pattern | Way too permissive; no 1p/3p split; no trust UX |
+| **Safari ITP** | 7d cap on JS-set + suspicious-server 1p cookies | The exact cap we picked | Safari-only; not user-tunable; no override UX |
+| **`semenko/chrome-limit-cookie-lifetime`** | Rewrites all cookie expiry to a single user-set value | Cap-rewrite mechanism (closest to ours) | MV2 only; **broken since Chrome's mid-2024 MV2 sunset**; no 1p/3p split; no whitelist; abandoned (last push 2023-07-27, 6 stars) |
+| **Cookie Guardian** (MV3, active) | Delete on tab close + scheduled aging | Active MV3 cookie-extension shape; whitelist UX | **Deletes** instead of capping (loses cross-tab continuity); binary whitelist (protected vs auto-deleted, no graduated cap); no 1p/3p split; paywall on >10 sites |
+| **Cookie-AutoDelete-MV3 fork** | Same model as Cookie Guardian | — | Same gaps as Cookie Guardian |
+| **Brave shields** | Block 3p outright at the browser shield layer | Default-ON, no choice paralysis | Whole-browser commitment; can't run alongside other browsers; 1p left alone |
+
+**Honest framing for README/marketing:** "Chrome's 400-day cap is too permissive; Cookie Guardian deletes-on-close (we cap-rewrite, preserving cross-tab continuity within a session); Brave blocks 3p entirely (we session-scope so embeds work). We're the 7d/session/30d/90d graduated default."
 
 ## Maintenance-mode ≠ "Chrome outplayed it" — survey findings
 

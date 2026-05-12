@@ -1,0 +1,111 @@
+/* popup-card.css — scoped under .scoper-card so styles don't collide
+   with wearehere's existing popup CSS. All selectors live below
+   .scoper-card except the prefixed IDs which are unique anyway. */
+
+.scoper-card {
+  padding: 14px 16px 12px;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  border-radius: 8px;
+}
+
+.scoper-card-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #ff6b6b;
+  margin-bottom: 12px;
+}
+
+.scoper-site-line {
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 4px;
+}
+.scoper-site-line .cap {
+  color: #888;
+  font-weight: 500;
+  margin-left: 6px;
+}
+.scoper-site-line .cap.trusted { color: #5ed1a0; }
+
+.scoper-impact {
+  font-size: 12px;
+  color: #aaa;
+  margin-bottom: 12px;
+  line-height: 1.45;
+  min-height: 18px;
+}
+.scoper-impact.warn { color: #e0a458; }
+.scoper-impact.ok   { color: #5ed1a0; }
+
+.scoper-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.scoper-actions button {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 6px;
+  border-radius: 4px;
+  border: 1px solid #3a3a5a;
+  background: #2a2a4a;
+  color: #ddd;
+  cursor: pointer;
+  font-family: inherit;
+}
+.scoper-actions button:hover { background: #34345a; }
+.scoper-actions button:disabled { opacity: 0.5; cursor: wait; }
+
+#scoper-sweep-now {
+  background: #ff6b6b;
+  color: #1a1a2e;
+  border-color: #ff6b6b;
+}
+#scoper-sweep-now:hover { background: #ff8585; }
+
+#scoper-trust-toggle.trusted {
+  background: #2a4a3a;
+  border-color: #5ed1a0;
+  color: #5ed1a0;
+}
+
+.scoper-status {
+  font-size: 10px;
+  color: #888;
+  min-height: 12px;
+  margin: 6px 2px 8px;
+  text-align: center;
+}
+.scoper-status.ok    { color: #5ed1a0; }
+.scoper-status.gated { color: #e0a458; }
+.scoper-status.warn  { color: #e0a458; }
+
+.scoper-footer {
+  border-top: 1px solid #2a2a4a;
+  padding-top: 10px;
+  font-size: 11px;
+  color: #888;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.scoper-footer-sep { color: #444; }
+
+.scoper-dashboard-link {
+  display: block;
+  margin-top: 8px;
+  text-align: center;
+  font-size: 11px;
+  color: #ff6b6b;
+  text-decoration: none;
+  font-weight: 600;
+}
+.scoper-dashboard-link:hover { text-decoration: underline; }

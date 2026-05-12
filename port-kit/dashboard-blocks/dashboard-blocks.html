@@ -1,0 +1,98 @@
+<!-- dashboard-blocks.html — the four cookie-scoper blocks for
+     wearehere's report.html #panel-cookies. Replace #panel-cookies'
+     inner content with this. The wrapper has its own scoping class
+     (.scoper-dashboard) so wearehere's report.css doesn't fight it. -->
+<div class="scoper-dashboard">
+
+  <!-- Hero -->
+  <section class="scoper-hero">
+    <div class="scoper-stat">
+      <div class="scoper-stat-num" id="scoper-hero-tightened">0</div>
+      <div class="scoper-stat-label">tightened</div>
+    </div>
+    <div class="scoper-stat">
+      <div class="scoper-stat-num" id="scoper-hero-killed">0</div>
+      <div class="scoper-stat-label">trackers killed</div>
+    </div>
+    <div class="scoper-stat">
+      <div class="scoper-stat-num" id="scoper-hero-sites">0</div>
+      <div class="scoper-stat-label">sites watched</div>
+    </div>
+    <div class="scoper-stat">
+      <div class="scoper-stat-num small" id="scoper-hero-last">never</div>
+      <div class="scoper-stat-label">last sweep</div>
+    </div>
+  </section>
+
+  <!-- Trusted sites -->
+  <section class="scoper-block">
+    <div class="scoper-block-head">
+      <h2>Trusted sites <span class="scoper-block-count" id="scoper-trust-count"></span></h2>
+    </div>
+    <table class="scoper-trust-table">
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th>Trust</th>
+          <th>Cookies stored</th>
+          <th class="actions-col">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="scoper-trust-rows">
+        <tr class="empty-row"><td colspan="4">No trusted sites yet — visit a site you care about and click <em>Trust 30d</em> in the popup, or add one below.</td></tr>
+      </tbody>
+    </table>
+    <div class="scoper-add-row">
+      <span class="scoper-add-label">Add</span>
+      <input type="text" id="scoper-add-domain" placeholder="example.com" autocomplete="off">
+      <select id="scoper-add-tier">
+        <option value="30">30 days</option>
+        <option value="90">90 days</option>
+      </select>
+      <button id="scoper-add-btn">Add</button>
+      <span class="scoper-add-error" id="scoper-add-error"></span>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section class="scoper-block">
+    <div class="scoper-block-head">
+      <h2>Settings</h2>
+    </div>
+    <div class="scoper-setting-row">
+      <label class="scoper-setting-label">Sweep period</label>
+      <div class="scoper-radios" id="scoper-period-radios">
+        <label><input type="radio" name="scoper-period" value="15">  15 min</label>
+        <label><input type="radio" name="scoper-period" value="60">  hourly</label>
+        <label><input type="radio" name="scoper-period" value="240"> 4 hrs</label>
+        <label><input type="radio" name="scoper-period" value="720"> 12 hrs</label>
+      </div>
+      <span class="scoper-setting-status" id="scoper-period-status"></span>
+    </div>
+  </section>
+
+  <!-- Recent activity -->
+  <section class="scoper-block">
+    <div class="scoper-block-head">
+      <h2>Recent activity</h2>
+      <button id="scoper-activity-toggle" class="scoper-block-toggle">▾</button>
+    </div>
+    <div class="scoper-anchor-line" id="scoper-anchor-line">1p anchor: — sites watched</div>
+    <div id="scoper-activity-body" class="collapsed">
+      <table class="scoper-activity-table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Trigger</th>
+            <th class="num">Scanned</th>
+            <th class="num">Rewrote</th>
+            <th class="num">Demoted</th>
+          </tr>
+        </thead>
+        <tbody id="scoper-activity-rows"></tbody>
+      </table>
+      <button id="scoper-activity-show-all" class="scoper-show-all">Show all</button>
+    </div>
+  </section>
+
+</div>

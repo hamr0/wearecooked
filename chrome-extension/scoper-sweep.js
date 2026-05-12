@@ -51,9 +51,33 @@ function setCookieAsync(details) {
   });
 }
 
+const SWEEP_DEDUP_WINDOW_MS = 30 * 1000;
+
 async function initialSweep(trigger) {
   const policy = self.scoperPolicy;
+  if (!policy) {
+    console.warn("[wearecooked v5 sweep] scoperPolicy not loaded yet (trigger=" + trigger + ")");
+    return;
+  }
+
+  // Dedup gate: chrome.storage.session is cleared on browser shutdown and
+  // extension reload, so this only suppresses repeat sweeps within the
+  // same SW lifetime. `manual` bypasses the gate.
+  if (trigger !== "manual") {
+    try {
+      const { lastSweepMs } = await chrome.storage.session.get("lastSweepMs");
+      if (lastSweepMs && Date.now() - lastSweepMs < SWEEP_DEDUP_WINDOW_MS) {
+        console.log("[wearecooked v5 sweep] skipped — already swept " + Math.round((Date.now() - lastSweepMs) / 1000) + "s ago (trigger=" + trigger + ")");
+        return;
+      }
+      await chrome.storage.session.set({ lastSweepMs: Date.now() });
+    } catch (e) {
+      // storage.session unavailable -> proceed without gate
+    }
+  }
+
   const classify = self.classifyCookie || (() => null);
+  console.log("[wearecooked v5 sweep] starting (trigger=" + trigger + ")");
 
   const cookies = await chrome.cookies.getAll({});
   const openSet = await sweepOpenTabETLDSet();
@@ -109,6 +133,8 @@ async function initialSweep(trigger) {
   );
 }
 
+self.initialSweep = initialSweep;
+
 chrome.runtime.onInstalled.addListener((details) => {
   initialSweep("onInstalled:" + (details && details.reason));
 });
@@ -119,4 +145,9 @@ chrome.runtime.onStartup.addListener(() => {
   setTimeout(() => initialSweep("onStartup"), 2000);
 });
 
-console.log("[wearecooked v5 sweep] sweep handlers registered (onInstalled, onStartup)");
+// SW-load trigger: catches extension reload + any SW wake. The dedup gate
+// inside initialSweep prevents thrashing when the SW idles + wakes
+// rapidly. This is the most reliable trigger for dev-time iteration.
+initialSweep("sw-load");
+
+console.log("[wearecooked v5 sweep] sweep handlers registered (sw-load, onInstalled, onStartup) — manual: self.initialSweep('manual')");

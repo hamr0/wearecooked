@@ -127,10 +127,9 @@ async function initialSweep(trigger) {
     }
   }
 
-  console.log(
-    "[wearecooked v5 sweep] done (trigger=" + trigger + "):",
-    { scanned: cookies.length, rewrites, demotions, skips, failures },
-  );
+  const stats = { scanned: cookies.length, rewrites, demotions, skips, failures };
+  console.log("[wearecooked v5 sweep] done (trigger=" + trigger + "):", stats);
+  return stats;
 }
 
 self.initialSweep = initialSweep;

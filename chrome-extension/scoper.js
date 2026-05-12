@@ -134,10 +134,41 @@ function decideAction({ cookie, topHost, thirdParty, trustList, cookieClass }) {
   return { action: "rewrite", capDays, reason, etld1: cookieETLD };
 }
 
+// Pure transformation: cookies.Cookie + target capDays -> cookies.set details.
+// Returns null when the cookie violates __Host- invariants and we'd rather
+// skip than risk Chrome rejection. capDays === null -> session (no expirationDate).
+function buildSetDetails(cookie, capDays) {
+  const host = cookie.domain.startsWith(".") ? cookie.domain.slice(1) : cookie.domain;
+  const details = {
+    url: (cookie.secure ? "https:" : "http:") + "//" + host + cookie.path,
+    name: cookie.name,
+    value: cookie.value,
+    path: cookie.path,
+    secure: cookie.secure,
+    httpOnly: cookie.httpOnly,
+    sameSite: cookie.sameSite,
+    storeId: cookie.storeId,
+  };
+  if (capDays !== null) {
+    details.expirationDate = Math.floor(Date.now() / 1000) + capDays * SEC_PER_DAY;
+  }
+  if (cookie.name.startsWith("__Host-")) {
+    if (cookie.path !== "/" || !cookie.secure || cookie.domain.startsWith(".")) {
+      return null;
+    }
+    // No details.domain — __Host- requires the cookie be set without a
+    // Domain attribute so it's bound to the exact host.
+  } else if (cookie.domain.startsWith(".")) {
+    details.domain = cookie.domain;
+  }
+  return details;
+}
+
 self.scoperPolicy = {
   etld1Of,
   isThirdParty,
   decideAction,
+  buildSetDetails,
   CAP_FIRST_PARTY_DAYS: TIER_FIRST_PARTY_DAYS,
   CAP_TRUSTED_DEFAULT_DAYS: TIER_TRUSTED_DEFAULT_DAYS,
   CAP_TRUSTED_POWER_DAYS: TIER_TRUSTED_POWER_DAYS,

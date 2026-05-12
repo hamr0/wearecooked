@@ -40,33 +40,6 @@ async function loadTrustList() {
   return new Map();
 }
 
-function buildSetDetails(cookie, capDays) {
-  const host = stripLeadingDot(cookie.domain);
-  const details = {
-    url: (cookie.secure ? "https:" : "http:") + "//" + host + cookie.path,
-    name: cookie.name,
-    value: cookie.value,
-    path: cookie.path,
-    secure: cookie.secure,
-    httpOnly: cookie.httpOnly,
-    sameSite: cookie.sameSite,
-    storeId: cookie.storeId,
-  };
-  if (capDays !== null) {
-    details.expirationDate = Math.floor(Date.now() / 1000) + capDays * 86400;
-  }
-  if (cookie.name.startsWith("__Host-")) {
-    // __Host- spec: Secure + path=/ + no Domain attribute.
-    if (cookie.path !== "/" || !cookie.secure || cookie.domain.startsWith(".")) {
-      return null;
-    }
-    // Intentionally no details.domain
-  } else if (cookie.domain.startsWith(".")) {
-    details.domain = cookie.domain;
-  }
-  return details;
-}
-
 chrome.cookies.onChanged.addListener(async ({ cookie, removed }) => {
   if (removed) return;
   if (cookie.session) return;
@@ -87,7 +60,7 @@ chrome.cookies.onChanged.addListener(async ({ cookie, removed }) => {
   if (seenAt && Date.now() - seenAt < INFLIGHT_TTL_MS) return;
   inflight.set(key, Date.now());
 
-  const details = buildSetDetails(cookie, decision.capDays);
+  const details = policy.buildSetDetails(cookie, decision.capDays);
   if (!details) {
     console.log("[wearecooked v5 scoper] skip malformed __Host- cookie:", { name: cookie.name, domain: cookie.domain });
     inflight.delete(key);
